@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+  "ray_tracer",
+  "rt_run",
+]

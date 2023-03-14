@@ -78,6 +78,17 @@ impl Matrix {
         let submatrix = self.submatrix(row_index, column_index);
         submatrix.determinant()
     }
+
+    pub fn cofactor(&self, row_index: usize, column_index: usize) -> f64 {
+        let minor = self.minor(row_index, column_index);
+        // if row + column is odd, then we negate the minor
+        // otherwise, we return it as is
+        if row_index + column_index % 2 == 0 {
+            minor
+        } else {
+            -minor
+        }
+    }
 }
 
 impl Index<usize> for Matrix {
@@ -324,5 +335,14 @@ mod tests {
         let det_b = b.determinant();
         assert_eq!(det_b, 25.0);
         assert_eq!(a.minor(1, 0), 25.0);
+    }
+
+    #[test]
+    fn cofactor_3x3_matrix() {
+        let a = Matrix::new(&[&[3.0, 5.0, 0.0], &[2.0, -1.0, -7.0], &[6.0, -1.0, 5.0]]);
+        assert_eq!(a.minor(0, 0), -12.0);
+        assert_eq!(a.cofactor(0, 0), -12.0);
+        assert_eq!(a.minor(1, 0), 25.0);
+        assert_eq!(a.cofactor(1, 0), -25.0);
     }
 }

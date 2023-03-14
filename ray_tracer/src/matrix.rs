@@ -73,6 +73,11 @@ impl Matrix {
         }
         Self { data }
     }
+
+    pub fn minor(&self, row_index: usize, column_index: usize) -> f64 {
+        let submatrix = self.submatrix(row_index, column_index);
+        submatrix.determinant()
+    }
 }
 
 impl Index<usize> for Matrix {
@@ -310,5 +315,14 @@ mod tests {
         ]);
         let sub_a = Matrix::new(&[&[-6.0, 1.0, 6.0], &[-8.0, 8.0, 6.0], &[-7.0, -1.0, 1.0]]);
         assert_eq!(a.submatrix(2, 1), sub_a);
+    }
+
+    #[test]
+    fn minor_3x3_matrix() {
+        let a = Matrix::new(&[&[3.0, 5.0, 0.0], &[2.0, -1.0, -7.0], &[6.0, -1.0, 5.0]]);
+        let b = a.submatrix(1, 0);
+        let det_b = b.determinant();
+        assert_eq!(det_b, 25.0);
+        assert_eq!(a.minor(1, 0), 25.0);
     }
 }

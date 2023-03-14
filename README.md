@@ -7,6 +7,8 @@ in Rust.
 
 This project targets Rust 1.68.0 and above. [rustup](https://rustup.rs/) is recommended for installing the Rust toolchain.
 
+To run:
+
 ```
 cargo run
 ```

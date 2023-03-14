@@ -13,7 +13,7 @@ mod tests {
     #[test]
     fn two_floats_equal() {
         let a = 1.0;
-        let b = 1.0;
+        let b = 1.00000001;
         assert!(equal(a, b));
     }
 }

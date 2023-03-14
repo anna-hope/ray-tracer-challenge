@@ -1,4 +1,4 @@
-use ray_tracer::{Environment, Projectile, Tuple, tick};
+use ray_tracer::{tick, Environment, Projectile, Tuple};
 
 fn main() {
     let mut projectile = Projectile {
@@ -14,13 +14,11 @@ fn main() {
     loop {
         projectile = tick(&environment, &projectile);
         println!("Projectile position: {:?}", projectile.position);
-        num_ticks += 1; 
+        num_ticks += 1;
 
         if projectile.position.y <= 0.0 {
             break;
         }
-
     }
     println!("Took {num_ticks} ticks for projectile to hit the ground.");
-
 }

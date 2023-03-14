@@ -1,3 +1,5 @@
+mod canvas;
+mod color;
 mod common;
 mod tuple;
 

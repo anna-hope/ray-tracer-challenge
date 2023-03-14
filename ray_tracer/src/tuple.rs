@@ -21,15 +21,15 @@ pub enum TupleKind {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Tuple {
-  pub x: f64,
-  pub y: f64,
-  pub z: f64,
-  pub w: f64,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub w: f64,
 }
 
 impl Tuple {
     pub fn new(x: f64, y: f64, z: f64, w: f64) -> Self {
-      Self {x, y, z, w}
+        Self { x, y, z, w }
     }
 
     pub fn point(x: f64, y: f64, z: f64) -> Self {
@@ -132,7 +132,12 @@ impl Neg for Tuple {
     type Output = Self;
 
     fn neg(self) -> Self {
-        Self { x: -self.x, y: -self.y, z: -self.z, w: -self.w}
+        Self {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+            w: -self.w,
+        }
     }
 }
 
@@ -140,7 +145,12 @@ impl Mul<f64> for Tuple {
     type Output = Self;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        Self{ x: self.x * rhs, y: self.y * rhs, z: self.z * rhs, w: self.w * rhs}
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+            w: self.w * rhs,
+        }
     }
 }
 
@@ -148,7 +158,12 @@ impl Div<f64> for Tuple {
     type Output = Self;
 
     fn div(self, rhs: f64) -> Self::Output {
-        Self { x: self.x / rhs, y: self.y / rhs, z: self.z / rhs, w: self.w / rhs}
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+            w: self.w / rhs,
+        }
     }
 }
 

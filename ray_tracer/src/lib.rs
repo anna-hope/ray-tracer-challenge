@@ -1,5 +1,5 @@
-mod canvas;
-mod color;
+pub mod canvas;
+pub mod color;
 mod common;
 mod tuple;
 

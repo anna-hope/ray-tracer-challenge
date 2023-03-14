@@ -3,7 +3,7 @@ use ray_tracer::{tick, Environment, Projectile, Tuple};
 fn main() {
     let mut projectile = Projectile {
         position: Tuple::point(0.0, 1.0, 0.0),
-        velocity: Tuple::vector(1.0, 1.0, 0.0).norm() * 5.0,
+        velocity: Tuple::vector(1.0, 1.0, 0.0).norm(),
     };
     let environment = Environment {
         gravity: Tuple::vector(0.0, -0.1, 0.0),

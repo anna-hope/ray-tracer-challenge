@@ -76,7 +76,7 @@ impl Canvas {
             lines.push(line_strings.join(""));
         }
 
-        lines.join("\n")
+        lines.join("\n") + "\n"
     }
 }
 
@@ -166,5 +166,13 @@ mod tests {
             lines[6],
             "153 255 204 153 255 204 153 255 204 153 255 204 153"
         );
+    }
+
+    #[test]
+    fn ppm_ends_in_newline() {
+      let c = Canvas::new(5, 3);
+      let ppm = c.to_ppm();
+      let last_char = ppm.chars().last().unwrap();
+      assert_eq!(last_char, '\n');
     }
 }

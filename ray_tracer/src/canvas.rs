@@ -33,9 +33,11 @@ impl Canvas {
         self.pixels[y][x]
     }
 
-    /// Panics if x or y are outside the canvas.
+    /// Does nothing if x or y are outside the canvas.
     pub fn write_pixel(&mut self, x: usize, y: usize, color: Color) {
-        self.pixels[y][x] = color;
+        if x < self.width && y < self.height {
+            self.pixels[y][x] = color;
+        }
     }
 
     /// Get a PPM-format string for the pixel values of the canvas.
@@ -170,9 +172,9 @@ mod tests {
 
     #[test]
     fn ppm_ends_in_newline() {
-      let c = Canvas::new(5, 3);
-      let ppm = c.to_ppm();
-      let last_char = ppm.chars().last().unwrap();
-      assert_eq!(last_char, '\n');
+        let c = Canvas::new(5, 3);
+        let ppm = c.to_ppm();
+        let last_char = ppm.chars().last().unwrap();
+        assert_eq!(last_char, '\n');
     }
 }

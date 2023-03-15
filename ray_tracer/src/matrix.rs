@@ -1,7 +1,17 @@
 use std::ops::{Index, Mul};
 
+use thiserror::Error;
+
 use crate::common::equal;
 use crate::Tuple;
+
+type Result<T> = std::result::Result<T, MatrixError>;
+
+#[derive(Debug, Error)]
+pub enum MatrixError {
+    #[error("Attempted to calculate an inverse of a non-invertible matrix")]
+    NonInvertible,
+}
 
 #[derive(Clone, Debug)]
 pub struct Matrix {
@@ -27,35 +37,55 @@ impl Matrix {
         ])
     }
 
-    pub fn transpose(&self) -> Self {
-        // There is a much more efficient way of doing this if we only assume square matrices
-        // And probably a more efficient way of doing it even with non-square matrices
-        // But this works ¯\_(ツ)_/¯
-        let (m, n) = (self.data.len(), self.data[0].len());
+    fn dim(&self) -> (usize, usize) {
+        (self.data.len(), self.data[0].len())
+    }
 
+    fn zeros(rows: usize, columns: usize) -> Self {
         let mut data = vec![];
-        for col in 0..n {
+        for col in 0..rows {
             data.push(vec![]);
-            for _ in 0..m {
+            for _ in 0..columns {
                 data[col].push(0.0);
-            }
-        }
-
-        for (i, row) in self.data.iter().enumerate() {
-            for (j, item) in row.iter().enumerate() {
-                data[j][i] = *item;
             }
         }
 
         Self { data }
     }
 
+    pub fn transpose(&self) -> Self {
+        // There is a much more efficient way of doing this if we only assume square matrices
+        // And probably a more efficient way of doing it even with non-square matrices
+        // But this works ¯\_(ツ)_/¯
+        let (m, n) = self.dim();
+
+        let mut transposed = Matrix::zeros(n, m);
+
+        for (i, row) in self.data.iter().enumerate() {
+            for (j, item) in row.iter().enumerate() {
+                transposed.data[j][i] = *item;
+            }
+        }
+
+        transposed
+    }
+
     pub fn determinant(&self) -> f64 {
-        let a = self[0][0];
-        let b = self[0][1];
-        let c = self[1][0];
-        let d = self[1][1];
-        a * d - b * c
+        if self.dim() == (2, 2) {
+            let a = self[0][0];
+            let b = self[0][1];
+            let c = self[1][0];
+            let d = self[1][1];
+            a * d - b * c
+        } else {
+            let row = &self[0];
+            let mut det = 0.0;
+            for (j, val) in row.into_iter().enumerate() {
+                let cofactor = self.cofactor(0, j);
+                det += val * cofactor;
+            }
+            det
+        }
     }
 
     pub fn submatrix(&self, row_index: usize, column_index: usize) -> Self {
@@ -83,11 +113,39 @@ impl Matrix {
         let minor = self.minor(row_index, column_index);
         // if row + column is odd, then we negate the minor
         // otherwise, we return it as is
-        if row_index + column_index % 2 == 0 {
+        if (row_index + column_index) % 2 == 0 {
             minor
         } else {
             -minor
         }
+    }
+
+    pub fn is_invertible(&self) -> bool {
+        self.determinant() != 0.0
+    }
+
+    pub fn inverse(&self) -> Result<Self> {
+        if !self.is_invertible() {
+            return Err(MatrixError::NonInvertible);
+        }
+
+        let (m, n) = self.dim();
+        let mut new_matrix = Matrix::zeros(m, n);
+
+        let det = self.determinant();
+
+        for row in 0..m {
+            for column in 0..n {
+                let cofactor = self.cofactor(row, column);
+                println!(
+                    "row: {}, column: {} cofactor: {} determinant: {}",
+                    row, column, cofactor, det
+                );
+                new_matrix.data[column][row] = cofactor / det;
+            }
+        }
+
+        Ok(new_matrix)
     }
 }
 
@@ -344,5 +402,76 @@ mod tests {
         assert_eq!(a.cofactor(0, 0), -12.0);
         assert_eq!(a.minor(1, 0), 25.0);
         assert_eq!(a.cofactor(1, 0), -25.0);
+    }
+
+    #[test]
+    fn determinant_3x3_matrix() {
+        let a = Matrix::new(&[&[1.0, 2.0, 6.0], &[-5.0, 8.0, -4.0], &[2.0, 6.0, 4.0]]);
+        assert_eq!(a.cofactor(0, 0), 56.0);
+        assert_eq!(a.cofactor(0, 1), 12.0);
+        assert_eq!(a.determinant(), -196.0);
+    }
+
+    #[test]
+    fn determinant_4x4_matrix() {
+        let a = Matrix::new(&[
+            &[-2.0, -8.0, 3.0, 5.0],
+            &[-3.0, 1.0, 7.0, 3.0],
+            &[1.0, 2.0, -9.0, 6.0],
+            &[-6.0, 7.0, 7.0, -9.0],
+        ]);
+        assert_eq!(a.cofactor(0, 0), 690.0);
+        assert_eq!(a.cofactor(0, 1), 447.0);
+        assert_eq!(a.cofactor(0, 2), 210.0);
+        assert_eq!(a.cofactor(0, 3), 51.0);
+        assert_eq!(a.determinant(), -4071.0);
+    }
+
+    #[test]
+    fn invertible_matrix_is_invertible() {
+        let a = Matrix::new(&[
+            &[6.0, 4.0, 4.0, 4.0],
+            &[5.0, 5.0, 7.0, 6.0],
+            &[4.0, -9.0, 3.0, -7.0],
+            &[9.0, 1.0, 7.0, -6.0],
+        ]);
+        assert_eq!(a.determinant(), -2120.0);
+        assert!(a.is_invertible());
+    }
+
+    #[test]
+    fn non_invertible_matrix_is_not_invertible() {
+        let a = Matrix::new(&[
+            &[-4.0, 2.0, -2.0, -3.0],
+            &[9.0, 6.0, 2.0, 6.0],
+            &[0.0, -5.0, 1.0, -5.0],
+            &[0.0, 0.0, 0.0, 0.0],
+        ]);
+        assert_eq!(a.determinant(), 0.0);
+        assert!(!a.is_invertible());
+    }
+
+    #[test]
+    fn calculate_inverse() {
+        let a = Matrix::new(&[
+            &[-5.0, 2.0, 6.0, -8.0],
+            &[1.0, -5.0, 1.0, 8.0],
+            &[7.0, 7.0, -6.0, -7.0],
+            &[1.0, -3.0, 7.0, 4.0],
+        ]);
+        let b = a.inverse().unwrap();
+        assert_eq!(a.determinant(), 532.0);
+        assert_eq!(a.cofactor(2, 3), -160.0);
+        assert!(equal(b[3][2], -160.0 / 532.0));
+        assert_eq!(a.cofactor(3, 2), 105.0);
+        assert!(equal(b[2][3], 105.0 / 532.0));
+
+        let expected_b = Matrix::new(&[
+            &[0.21805, 0.45113, 0.24060, -0.04511],
+            &[-0.80827, -1.45677, -0.44361, 0.52068],
+            &[-0.07895, -0.22368, -0.05263, 0.19737],
+            &[-0.52256, -0.81391, -0.30075, 0.30639],
+        ]);
+        assert_eq!(b, expected_b);
     }
 }

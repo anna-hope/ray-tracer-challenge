@@ -137,10 +137,6 @@ impl Matrix {
         for row in 0..m {
             for column in 0..n {
                 let cofactor = self.cofactor(row, column);
-                println!(
-                    "row: {}, column: {} cofactor: {} determinant: {}",
-                    row, column, cofactor, det
-                );
                 new_matrix.data[column][row] = cofactor / det;
             }
         }
@@ -377,10 +373,10 @@ mod tests {
     #[test]
     fn submatrix_4x4_matrix_is_3x3_matrix() {
         let a = Matrix::new(&[
-            &[-6.0, 1.0, 1.0, 6.0],
-            &[-8.0, 5.0, 8.0, 6.0],
-            &[-1.0, 0.0, 8.0, 2.0],
-            &[-7.0, 1.0, -1.0, 1.0],
+            &[-6., 1., 1., 6.],
+            &[-8., 5., 8., 6.],
+            &[-1., 0., 8., 2.],
+            &[-7., 1., -1., 1.],
         ]);
         let sub_a = Matrix::new(&[&[-6.0, 1.0, 6.0], &[-8.0, 8.0, 6.0], &[-7.0, -1.0, 1.0]]);
         assert_eq!(a.submatrix(2, 1), sub_a);
@@ -415,10 +411,10 @@ mod tests {
     #[test]
     fn determinant_4x4_matrix() {
         let a = Matrix::new(&[
-            &[-2.0, -8.0, 3.0, 5.0],
-            &[-3.0, 1.0, 7.0, 3.0],
-            &[1.0, 2.0, -9.0, 6.0],
-            &[-6.0, 7.0, 7.0, -9.0],
+            &[-2., -8., 3., 5.],
+            &[-3., 1., 7., 3.],
+            &[1., 2., -9., 6.],
+            &[-6., 7., 7., -9.],
         ]);
         assert_eq!(a.cofactor(0, 0), 690.0);
         assert_eq!(a.cofactor(0, 1), 447.0);
@@ -430,10 +426,10 @@ mod tests {
     #[test]
     fn invertible_matrix_is_invertible() {
         let a = Matrix::new(&[
-            &[6.0, 4.0, 4.0, 4.0],
-            &[5.0, 5.0, 7.0, 6.0],
-            &[4.0, -9.0, 3.0, -7.0],
-            &[9.0, 1.0, 7.0, -6.0],
+            &[6., 4., 4., 4.],
+            &[5., 5., 7., 6.],
+            &[4., -9., 3., -7.],
+            &[9., 1., 7., -6.],
         ]);
         assert_eq!(a.determinant(), -2120.0);
         assert!(a.is_invertible());
@@ -442,10 +438,10 @@ mod tests {
     #[test]
     fn non_invertible_matrix_is_not_invertible() {
         let a = Matrix::new(&[
-            &[-4.0, 2.0, -2.0, -3.0],
-            &[9.0, 6.0, 2.0, 6.0],
-            &[0.0, -5.0, 1.0, -5.0],
-            &[0.0, 0.0, 0.0, 0.0],
+            &[-4., 2., -2., -3.],
+            &[9., 6., 2., 6.],
+            &[0., -5., 1., -5.],
+            &[0., 0., 0., 0.],
         ]);
         assert_eq!(a.determinant(), 0.0);
         assert!(!a.is_invertible());
@@ -454,10 +450,10 @@ mod tests {
     #[test]
     fn calculate_inverse() {
         let a = Matrix::new(&[
-            &[-5.0, 2.0, 6.0, -8.0],
-            &[1.0, -5.0, 1.0, 8.0],
-            &[7.0, 7.0, -6.0, -7.0],
-            &[1.0, -3.0, 7.0, 4.0],
+            &[-5., 2., 6., -8.],
+            &[1., -5., 1., 8.],
+            &[7., 7., -6., -7.],
+            &[1., -3., 7., 4.],
         ]);
         let b = a.inverse().unwrap();
         assert_eq!(a.determinant(), 532.0);
@@ -473,5 +469,58 @@ mod tests {
             &[-0.52256, -0.81391, -0.30075, 0.30639],
         ]);
         assert_eq!(b, expected_b);
+    }
+
+    #[test]
+    fn calculate_another_inverse() {
+        let a = Matrix::new(&[
+            &[8., -5., 9., 2.],
+            &[7., 5., 6., 1.],
+            &[-6., 0., 9., 6.],
+            &[-3., 0., -9., -4.],
+        ]);
+        let expected = Matrix::new(&[
+            &[-0.15385, -0.15385, -0.28205, -0.53846],
+            &[-0.07692, 0.12308, 0.02564, 0.03077],
+            &[0.35897, 0.35897, 0.43590, 0.92308],
+            &[-0.69231, -0.69231, -0.76923, -1.92308],
+        ]);
+
+        assert_eq!(a.inverse().unwrap(), expected);
+    }
+
+    #[test]
+    fn calculate_yet_another_inverse() {
+        let a = Matrix::new(&[
+            &[9., 3., 0., 9.],
+            &[-5., -2., -6., -3.],
+            &[-4., 9., 6., 4.],
+            &[-7., 6., 6., 2.],
+        ]);
+        let expected = Matrix::new(&[
+            &[-0.04074, -0.07778, 0.14444, -0.22222],
+            &[-0.07778, 0.03333, 0.36667, -0.33333],
+            &[-0.02901, -0.14630, -0.10926, 0.12963],
+            &[0.17778, 0.06667, -0.26667, 0.33333],
+        ]);
+        assert_eq!(a.inverse().unwrap(), expected);
+    }
+
+    #[test]
+    fn multiplying_a_product_by_inverse_gives_original_matrix() {
+        let a = Matrix::new(&[
+            &[3., -9., 7., 3.],
+            &[3., -8., 2., -9.],
+            &[-4., 4., 4., 1.],
+            &[-6., 5., -1., 1.],
+        ]);
+        let b = Matrix::new(&[
+            &[8., 2., 2., 2.],
+            &[3., -1., 7., 0.],
+            &[7., 0., 5., 4.],
+            &[6., -2., 0., 5.],
+        ]);
+        let c = a.clone() * b.clone();
+        assert_eq!(c * b.inverse().unwrap(), a);
     }
 }

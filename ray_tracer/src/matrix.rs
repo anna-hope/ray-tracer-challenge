@@ -170,8 +170,12 @@ impl Mul<Self> for Matrix {
     type Output = Self;
 
     /// Only defined for 4x4 matrices, as per the book.
-    /// Will likely panic for matrices of all other dimensions.
+    /// Will panic for matrices of all other dimensions.
     fn mul(self, other: Self) -> Self {
+        if self.dim() != (4, 4) {
+            panic!("Matrix multiplication is defined only for 4x4 matrices!");
+        }
+
         let mut result_rows = Vec::with_capacity(4);
         for row in 0..4 {
             let mut result_row = Vec::with_capacity(4);
@@ -194,6 +198,10 @@ impl Mul<Tuple> for Matrix {
     /// Only defined for 4x4 matrices, as per the book.
     /// Will likely panic for matrices of all other dimensions.
     fn mul(self, rhs: Tuple) -> Self::Output {
+        if self.dim() != (4, 4) {
+            panic!("Matrix multiplication is defined only for 4x4 matrices!");
+        }
+
         let mut results = Vec::with_capacity(4);
         for row in 0..4 {
             let result = self[row][0] * rhs.x

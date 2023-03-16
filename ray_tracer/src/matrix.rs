@@ -1,4 +1,4 @@
-use std::ops::{Index, Mul};
+use std::ops::{Index, IndexMut, Mul};
 
 use thiserror::Error;
 
@@ -143,6 +143,63 @@ impl Matrix {
 
         Ok(new_matrix)
     }
+
+    pub fn translation(x: f64, y: f64, z: f64) -> Self {
+        let mut m = Self::identity();
+        m[0][3] = x;
+        m[1][3] = y;
+        m[2][3] = z;
+        m
+    }
+
+    pub fn scaling(x: f64, y: f64, z: f64) -> Self {
+        let mut m = Self::identity();
+        m[0][0] = x;
+        m[1][1] = y;
+        m[2][2] = z;
+        m
+    }
+
+    pub fn rotation_x(radians: f64) -> Self {
+        let mut m = Self::identity();
+        let (sin_r, cos_r) = radians.sin_cos();
+        m[1][1] = cos_r;
+        m[2][1] = sin_r;
+        m[1][2] = -sin_r;
+        m[2][2] = cos_r;
+        m
+    }
+
+    pub fn rotation_y(radians: f64) -> Self {
+        let mut m = Self::identity();
+        let (sin_r, cos_r) = radians.sin_cos();
+        m[0][0] = cos_r;
+        m[2][0] = -sin_r;
+        m[0][2] = sin_r;
+        m[2][2] = cos_r;
+        m
+    }
+
+    pub fn rotation_z(radians: f64) -> Self {
+        let mut m = Self::identity();
+        let (sin_r, cos_r) = radians.sin_cos();
+        m[0][0] = cos_r;
+        m[1][0] = sin_r;
+        m[0][1] = -sin_r;
+        m[1][1] = cos_r;
+        m
+    }
+
+    pub fn shearing(xy: f64, xz: f64, yx: f64, yz: f64, zx: f64, zy: f64) -> Self {
+        let mut m = Self::identity();
+        m[0][1] = xy;
+        m[0][2] = xz;
+        m[1][0] = yx;
+        m[1][2] = yz;
+        m[2][0] = zx;
+        m[2][1] = zy;
+        m
+    }
 }
 
 impl Index<usize> for Matrix {
@@ -150,6 +207,12 @@ impl Index<usize> for Matrix {
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.data[index]
+    }
+}
+
+impl IndexMut<usize> for Matrix {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
     }
 }
 
@@ -216,6 +279,8 @@ impl Mul<Tuple> for Matrix {
 
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::PI;
+
     use super::*;
 
     #[test]
@@ -530,5 +595,174 @@ mod tests {
         ]);
         let c = a.clone() * b.clone();
         assert_eq!(c * b.inverse().unwrap(), a);
+    }
+
+    #[test]
+    fn multiplying_by_translation_matrix() {
+        let transform = Matrix::translation(5., -3., 2.);
+        let t = Tuple::point(-3., 4., 5.);
+        assert_eq!(transform * t, Tuple::point(2., 1., 7.));
+    }
+
+    #[test]
+    fn multiplying_by_inverse_of_translation_matrix() {
+        let transform = Matrix::translation(5., -3., 2.);
+        let inv = transform.inverse().unwrap();
+        let p = Tuple::point(-3., 4., 5.);
+        assert_eq!(inv * p, Tuple::point(-8., 7., 3.));
+    }
+
+    #[test]
+    fn translation_doesnt_affect_vector() {
+        let transform = Matrix::translation(5., -3., 2.);
+        let v = Tuple::vector(-3., 4., 5.);
+        assert_eq!(transform * v, v);
+    }
+
+    #[test]
+    fn scaling_matrix_applied_to_point() {
+        let transform = Matrix::scaling(2., 3., 4.);
+        let p = Tuple::point(-4., 6., 8.);
+        assert_eq!(transform * p, Tuple::point(-8., 18., 32.));
+    }
+
+    #[test]
+    fn scaling_matrix_applied_to_vector() {
+        let transform = Matrix::scaling(2., 3., 4.);
+        let v = Tuple::vector(-4., 6., 8.);
+        assert_eq!(transform * v, Tuple::vector(-8., 18., 32.));
+    }
+
+    #[test]
+    fn multiply_by_inverse_of_scaling_matrix() {
+        let transform = Matrix::scaling(2., 3., 4.);
+        let inv = transform.inverse().unwrap();
+        let v = Tuple::vector(-4., 6., 8.);
+        assert_eq!(inv * v, Tuple::vector(-2., 2., 2.));
+    }
+
+    #[test]
+    fn reflection_is_scaling_by_negative_value() {
+        let transform = Matrix::scaling(-1., 1., 1.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(-2., 3., 4.));
+    }
+
+    #[test]
+    fn rotating_point_around_x_axis() {
+        let p = Tuple::point(0., 1., 0.);
+        let half_quarter = Matrix::rotation_x(PI / 4.);
+        let full_quarter = Matrix::rotation_x(PI / 2.);
+        let val = 2.0_f64.sqrt() / 2.;
+        let p_half_quarter = Tuple::point(0., val, val);
+        assert_eq!(half_quarter * p, p_half_quarter);
+        let p_full_quarter = Tuple::point(0., 0., 1.);
+        assert_eq!(full_quarter * p, p_full_quarter);
+    }
+
+    #[test]
+    fn inverse_x_rotation_rotates_in_opposite_direction() {
+        let p = Tuple::point(0., 1., 0.);
+        let half_quarter = Matrix::rotation_x(PI / 4.);
+        let inv = half_quarter.inverse().unwrap();
+        let val = 2.0_f64.sqrt() / 2.;
+        let p_opposite = Tuple::point(0., val, -val);
+        assert_eq!(inv * p, p_opposite);
+    }
+
+    #[test]
+    fn rotating_point_around_y_axis() {
+        let p = Tuple::point(0., 0., 1.);
+        let half_quarter = Matrix::rotation_y(PI / 4.);
+        let full_quarter = Matrix::rotation_y(PI / 2.);
+        let val = 2.0_f64.sqrt() / 2.;
+        let p_half_quarter = Tuple::point(val, 0., val);
+        assert_eq!(half_quarter * p, p_half_quarter);
+        let p_full_quarter = Tuple::point(1., 0., 0.);
+        assert_eq!(full_quarter * p, p_full_quarter);
+    }
+
+    #[test]
+    fn rotating_point_around_z_axis() {
+        let p = Tuple::point(0., 1., 0.);
+        let half_quarter = Matrix::rotation_z(PI / 4.);
+        let full_quarter = Matrix::rotation_z(PI / 2.);
+        let val = 2.0_f64.sqrt() / 2.;
+        let p_half_quarter = Tuple::point(-val, val, 0.);
+        assert_eq!(half_quarter * p, p_half_quarter);
+        let p_full_quarter = Tuple::point(-1., 0., 0.);
+        assert_eq!(full_quarter * p, p_full_quarter);
+    }
+
+    #[test]
+    fn shearing_moves_x_in_proportion_to_y() {
+        let transform = Matrix::shearing(1., 0., 0., 0., 0., 0.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(5., 3., 4.));
+    }
+
+    #[test]
+    fn shearing_moves_x_in_proportion_to_z() {
+        let transform = Matrix::shearing(0., 1., 0., 0., 0., 0.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(6., 3., 4.));
+    }
+
+    #[test]
+    fn shearing_moves_y_in_proportion_to_x() {
+        let transform = Matrix::shearing(0., 0., 1., 0., 0., 0.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(2., 5., 4.));
+    }
+
+    #[test]
+    fn shearing_moves_y_in_proportion_to_z() {
+        let transform = Matrix::shearing(0., 0., 0., 1., 0., 0.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(2., 7., 4.));
+    }
+
+    #[test]
+    fn shearing_moves_z_in_proportion_to_x() {
+        let transform = Matrix::shearing(0., 0., 0., 0., 1., 0.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(2., 3., 6.));
+    }
+
+    #[test]
+    fn shearing_moves_z_in_proportion_to_y() {
+        let transform = Matrix::shearing(0., 0., 0., 0., 0., 1.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(2., 3., 7.));
+    }
+
+    #[test]
+    fn individual_transformations_applied_in_sequence() {
+        let p = Tuple::point(1., 0., 1.);
+        let a = Matrix::rotation_x(PI / 2.);
+        let b = Matrix::scaling(5., 5., 5.);
+        let c = Matrix::translation(10., 5., 7.);
+
+        // apply rotation first
+        let p2 = a * p;
+        assert_eq!(p2, Tuple::point(1., -1., 0.));
+
+        // then apply scaling
+        let p3 = b * p2;
+        assert_eq!(p3, Tuple::point(5., -5., 0.));
+
+        // then apply translation
+        let p4 = c * p3;
+        assert_eq!(p4, Tuple::point(15., 0., 7.));
+    }
+
+    #[test]
+    fn chained_transformations_applied_reverse_order() {
+        let p = Tuple::point(1., 0., 1.);
+        let a = Matrix::rotation_x(PI / 2.);
+        let b = Matrix::scaling(5., 5., 5.);
+        let c = Matrix::translation(10., 5., 7.);
+        let t = c * b * a;
+        assert_eq!(t * p, Tuple::point(15., 0., 7.));
     }
 }

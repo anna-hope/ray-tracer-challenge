@@ -80,7 +80,7 @@ impl Matrix {
         } else {
             let row = &self[0];
             let mut det = 0.0;
-            for (j, val) in row.into_iter().enumerate() {
+            for (j, val) in row.iter().enumerate() {
                 let cofactor = self.cofactor(0, j);
                 det += val * cofactor;
             }
@@ -249,7 +249,7 @@ impl IndexMut<usize> for Matrix {
 impl PartialEq for Matrix {
     fn eq(&self, other: &Self) -> bool {
         for (this_row, other_row) in self.data.iter().zip(other.data.iter()) {
-            for (this_val, other_val) in this_row.into_iter().zip(other_row) {
+            for (this_val, other_val) in this_row.iter().zip(other_row) {
                 if !equal(*this_val, *other_val) {
                     return false;
                 }

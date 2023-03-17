@@ -200,6 +200,36 @@ impl Matrix {
         m[2][1] = zy;
         m
     }
+
+    pub fn rotate_x(self, radians: f64) -> Self {
+        let rotation_matrix = Self::rotation_x(radians);
+        rotation_matrix * self
+    }
+
+    pub fn rotate_y(self, radians: f64) -> Self {
+        let rotation_matrix = Self::rotation_y(radians);
+        rotation_matrix * self
+    }
+
+    pub fn rotate_z(self, radians: f64) -> Self {
+        let rotation_matrix = Self::rotation_z(radians);
+        rotation_matrix * self
+    }
+
+    pub fn scale(self, x: f64, y: f64, z: f64) -> Self {
+        let scaling_matrix = Self::scaling(x, y, z);
+        scaling_matrix * self
+    }
+
+    pub fn translate(self, x: f64, y: f64, z: f64) -> Self {
+        let translation_matrix = Self::translation(x, y, z);
+        translation_matrix * self
+    }
+
+    pub fn shear(self, xy: f64, xz: f64, yx: f64, yz: f64, zx: f64, zy: f64) -> Self {
+        let shearing_matrix = Self::shearing(xy, xz, yx, yz, zx, zy);
+        shearing_matrix * self
+    }
 }
 
 impl Index<usize> for Matrix {
@@ -737,6 +767,13 @@ mod tests {
     }
 
     #[test]
+    fn shear_fluent_api() {
+        let transform = Matrix::identity().shear(0., 0., 0., 0., 0., 1.0);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(2., 3., 7.));
+    }
+
+    #[test]
     fn individual_transformations_applied_in_sequence() {
         let p = Tuple::point(1., 0., 1.);
         let a = Matrix::rotation_x(PI / 2.);
@@ -764,5 +801,15 @@ mod tests {
         let c = Matrix::translation(10., 5., 7.);
         let t = c * b * a;
         assert_eq!(t * p, Tuple::point(15., 0., 7.));
+    }
+
+    #[test]
+    fn transformation_fluent_api() {
+        let p = Tuple::point(1., 0., 1.);
+        let transform = Matrix::identity()
+            .rotate_x(PI / 2.)
+            .scale(5., 5., 5.)
+            .translate(10., 5., 7.);
+        assert_eq!(transform * p, Tuple::point(15., 0., 7.));
     }
 }

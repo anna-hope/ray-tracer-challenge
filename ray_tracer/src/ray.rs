@@ -7,6 +7,7 @@ pub struct Ray {
 }
 
 impl Ray {
+    /// Origin should be a point, direction should be a vector.
     pub fn new(origin: Tuple, direction: Tuple) -> Self {
         Self { origin, direction }
     }

@@ -2,12 +2,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
     intersection::{Intersect, Intersection, Ray},
-    Id, ObjectType, SceneObject, SceneObjectType, Tuple,
+    Id, Matrix, ObjectType, SceneObject, SceneObjectType, Tuple,
 };
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Sphere {
     id: usize,
+    pub transformation: Matrix,
 }
 
 impl Sphere {
@@ -15,7 +16,8 @@ impl Sphere {
     pub fn new() -> Self {
         static COUNTER: AtomicUsize = AtomicUsize::new(1);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        Self { id }
+        let transformation = Matrix::identity();
+        Self { id, transformation }
     }
 }
 
@@ -43,6 +45,12 @@ impl Intersect for Sphere {
     /// (even if it's only in one point, in which case the values would be the same)
     /// or an empty Vec if there is no intersection.
     fn intersect(&self, ray: &Ray) -> Vec<Intersection> {
+        let ray = ray.transform(
+            self.transformation
+                .inverse()
+                .expect("Sphere transformation should be invertible"),
+        );
+
         // the vector from the sphere's center, to the ray origin
         // (the sphere is centered at the world origin)
         // (subtracting a point from a point gives us a vector)
@@ -136,5 +144,39 @@ mod tests {
         assert_eq!(xs.len(), 2);
         assert_eq!(xs[0].object.id(), sphere.id());
         assert_eq!(xs[1].object.id(), sphere.id());
+    }
+
+    #[test]
+    fn sphere_default_transformation() {
+        let sphere = Sphere::new();
+        assert_eq!(sphere.transformation, Matrix::identity());
+    }
+
+    #[test]
+    fn changing_sphere_transformation() {
+        let mut sphere = Sphere::new();
+        let translation = Matrix::translation(2., 3., 4.);
+        sphere.transformation = translation.clone();
+        assert_eq!(sphere.transformation, translation);
+    }
+
+    #[test]
+    fn intersect_scaled_sphere_with_ray() {
+        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let mut sphere = Sphere::new();
+        sphere.transformation = Matrix::scaling(2., 2., 2.);
+        let xs = sphere.intersect(&ray);
+        assert_eq!(xs.len(), 2);
+        assert_eq!(xs[0].t, 3.);
+        assert_eq!(xs[1].t, 7.);
+    }
+
+    #[test]
+    fn intersect_translated_sphere_with_ray() {
+        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let mut sphere = Sphere::new();
+        sphere.transformation = Matrix::translation(5., 0., 0.);
+        let xs = sphere.intersect(&ray);
+        assert_eq!(xs.len(), 0);
     }
 }

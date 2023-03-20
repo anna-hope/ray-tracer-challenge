@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
     intersection::{Intersect, Intersection, Ray},
-    Tuple,
+    Id, ObjectType, SceneObject, SceneObjectType, Tuple,
 };
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -11,7 +11,7 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    /// Generates a new (unique) id for every instantiation of a Sphere.
+    /// Instantiates a new Sphere with an auto-incrementing id.
     pub fn new() -> Self {
         static COUNTER: AtomicUsize = AtomicUsize::new(1);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -19,12 +19,30 @@ impl Sphere {
     }
 }
 
-impl Intersect<Self> for Sphere {
+impl Default for Sphere {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Id for Sphere {
+    fn id(&self) -> usize {
+        self.id
+    }
+}
+
+impl ObjectType for Sphere {
+    fn object_type(&self) -> SceneObjectType {
+        SceneObjectType::Sphere
+    }
+}
+
+impl Intersect for Sphere {
     /// Calculates the intersection of a sphere and a ray
     /// Returns a Vec of two elements if there is an intersection
     /// (even if it's only in one point, in which case the values would be the same)
     /// or an empty Vec if there is no intersection.
-    fn intersect(&self, ray: &Ray) -> Vec<Intersection<Self>> {
+    fn intersect(&self, ray: &Ray) -> Vec<Intersection> {
         // the vector from the sphere's center, to the ray origin
         // (the sphere is centered at the world origin)
         // (subtracting a point from a point gives us a vector)
@@ -48,6 +66,8 @@ impl Intersect<Self> for Sphere {
         vec![i1, i2]
     }
 }
+
+impl SceneObject for Sphere {}
 
 #[cfg(test)]
 mod tests {
@@ -114,7 +134,7 @@ mod tests {
         let sphere = Sphere::new();
         let xs = sphere.intersect(&ray);
         assert_eq!(xs.len(), 2);
-        assert_eq!(xs[0].object, &sphere);
-        assert_eq!(xs[1].object, &sphere);
+        assert_eq!(xs[0].object.id(), sphere.id());
+        assert_eq!(xs[1].object.id(), sphere.id());
     }
 }

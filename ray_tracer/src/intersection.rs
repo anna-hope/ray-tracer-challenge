@@ -1,4 +1,6 @@
-use crate::Tuple;
+use std::fmt::Debug;
+
+use crate::{SceneObject, Tuple};
 
 /// Ray.origin is a point, Ray.direction is a vector.
 #[derive(Debug, Clone, Copy)]
@@ -18,33 +20,48 @@ impl Ray {
     }
 }
 
-pub trait Intersect<T> {
-    fn intersect(&self, ray: &Ray) -> Vec<Intersection<T>>;
+pub trait Intersect {
+    fn intersect(&self, ray: &Ray) -> Vec<Intersection>;
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
-pub struct Intersection<'a, T> {
+pub struct Intersection<'a> {
     pub t: f64,
-    pub object: &'a T,
+    pub object: &'a dyn SceneObject,
 }
 
-impl<'a, T> Intersection<'a, T> {
-    pub fn new(t: f64, object: &'a T) -> Self {
+impl<'a> Intersection<'a> {
+    pub fn new(t: f64, object: &'a dyn SceneObject) -> Self {
         Self { t, object }
     }
 }
 
-pub fn hit<'a, T>(xs: &'a [&'a Intersection<T>]) -> Option<&'a Intersection<'a, T>> {
-    let mut lowest_nonnegative_intersection: Option<&Intersection<T>> = None;
+impl<'a> PartialEq for Intersection<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.t == other.t
+            && self.object.id() == other.object.id()
+            && self.object.object_type() == other.object.object_type()
+    }
+}
+
+impl<'a> Debug for Intersection<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Intersection")
+            .field("t", &self.t)
+            .field("object type", &self.object.object_type())
+            .field("object id", &self.object.id())
+            .finish()
+    }
+}
+
+pub fn hit<'a>(xs: &'a [&'a Intersection]) -> Option<&'a Intersection<'a>> {
+    let mut lowest_nonnegative_intersection: Option<&Intersection> = None;
     for intersection in xs {
         if let Some(i) = lowest_nonnegative_intersection {
             if intersection.t > 0. && intersection.t < i.t {
                 lowest_nonnegative_intersection = Some(intersection);
             }
-        } else {
-            if intersection.t > 0. {
-                lowest_nonnegative_intersection = Some(intersection);
-            }
+        } else if intersection.t > 0. {
+            lowest_nonnegative_intersection = Some(intersection);
         }
     }
     lowest_nonnegative_intersection
@@ -53,7 +70,7 @@ pub fn hit<'a, T>(xs: &'a [&'a Intersection<T>]) -> Option<&'a Intersection<'a, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scene_object::Sphere;
+    use crate::{sphere::Sphere, Id, ObjectType};
 
     #[test]
     fn create_and_query_ray() {
@@ -78,7 +95,9 @@ mod tests {
         let sphere = Sphere::new();
         let intersection = Intersection::new(3.5, &sphere);
         assert_eq!(intersection.t, 3.5);
-        assert_eq!(intersection.object, &sphere);
+        // assert_eq!(&sphere, intersection.object);
+        assert_eq!(intersection.object.id(), sphere.id());
+        assert_eq!(intersection.object.object_type(), sphere.object_type());
     }
 
     #[test]

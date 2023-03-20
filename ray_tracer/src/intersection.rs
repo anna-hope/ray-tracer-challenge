@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{SceneObject, Tuple};
+use crate::{Matrix, SceneObject, Tuple};
 
 /// Ray.origin is a point, Ray.direction is a vector.
 #[derive(Debug, Clone, Copy)]
@@ -17,6 +17,12 @@ impl Ray {
 
     pub fn position(&self, t: f64) -> Tuple {
         self.origin + self.direction * t
+    }
+
+    pub fn transform(&self, matrix: Matrix) -> Self {
+        let origin = matrix.clone() * self.origin;
+        let direction = matrix * self.direction;
+        Self { origin, direction }
     }
 }
 
@@ -150,5 +156,23 @@ mod tests {
         let xs = &[&i1, &i2, &i3, &i4];
         let intersection = hit(xs).unwrap();
         assert_eq!(intersection, &i4);
+    }
+
+    #[test]
+    fn translate_ray() {
+        let ray = Ray::new(Tuple::point(1., 2., 3.), Tuple::vector(0., 1., 0.));
+        let matrix = Matrix::translation(3., 4., 5.);
+        let ray2 = ray.transform(matrix);
+        assert_eq!(ray2.origin, Tuple::point(4., 6., 8.));
+        assert_eq!(ray2.direction, Tuple::vector(0., 1., 0.));
+    }
+
+    #[test]
+    fn scale_ray() {
+        let ray = Ray::new(Tuple::point(1., 2., 3.), Tuple::vector(0., 1., 0.));
+        let matrix = Matrix::scaling(2., 3., 4.);
+        let ray2 = ray.transform(matrix);
+        assert_eq!(ray2.origin, Tuple::point(2., 6., 12.));
+        assert_eq!(ray2.direction, Tuple::vector(0., 3., 0.));
     }
 }

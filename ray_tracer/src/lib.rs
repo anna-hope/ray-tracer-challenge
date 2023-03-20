@@ -1,9 +1,9 @@
 pub mod canvas;
 pub mod color;
 mod common;
-mod intersections;
+mod intersection;
 mod matrix;
-mod sphere;
+mod scene_object;
 mod tuple;
 
 pub use matrix::Matrix;

@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
-    intersections::{Intersection, Ray},
+    intersection::{Intersect, Intersection, Ray},
     Tuple,
 };
 
@@ -17,12 +17,14 @@ impl Sphere {
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
         Self { id }
     }
+}
 
+impl Intersect<Self> for Sphere {
     /// Calculates the intersection of a sphere and a ray
     /// Returns a Vec of two elements if there is an intersection
     /// (even if it's only in one point, in which case the values would be the same)
     /// or an empty Vec if there is no intersection.
-    pub fn intersect(&self, ray: &Ray) -> Vec<Intersection<Self>> {
+    fn intersect(&self, ray: &Ray) -> Vec<Intersection<Self>> {
         // the vector from the sphere's center, to the ray origin
         // (the sphere is centered at the world origin)
         // (subtracting a point from a point gives us a vector)

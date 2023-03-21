@@ -16,6 +16,14 @@ impl Color {
     pub fn new(red: f64, green: f64, blue: f64) -> Self {
         Self { red, green, blue }
     }
+
+    pub fn white() -> Self {
+        Self {
+            red: 1.,
+            green: 1.,
+            blue: 1.,
+        }
+    }
 }
 
 impl PartialEq for Color {

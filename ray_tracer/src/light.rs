@@ -18,7 +18,7 @@ impl PointLight {
 impl Default for PointLight {
     fn default() -> Self {
         let position = Tuple::point(0., 0., 0.);
-        let intensity = Color::new(1., 1., 1.);
+        let intensity = Color::white();
         Self::new(position, intensity)
     }
 }

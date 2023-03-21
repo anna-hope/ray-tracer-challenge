@@ -24,9 +24,9 @@ fn main() {
 
     let mut canvas = Canvas::new(canvas_width, canvas_width);
 
-    // let transformation = Matrix::identity()
-    //     .shear(0., 0., 0., 0., 0., 0.)
-    //     .scale(0.5, 1., 1.);
+    let _transformation = Matrix::identity()
+        .shear(0., 0., 0., 0., 0., 0.)
+        .scale(0.5, 1., 1.);
     let mut material = Material::default();
     material.color = Color::new(0., 1., 1.); // cyan
 
@@ -64,7 +64,7 @@ fn main() {
             if let Some(hit) = hit(&xs) {
                 let point = ray.position(hit.t);
                 let normal_vector = hit.object.normal_at(point);
-                let eye_vector = ray.direction;
+                let eye_vector = -ray.direction;
                 let color = hit
                     .object
                     .material()

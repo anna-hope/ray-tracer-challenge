@@ -1,3 +1,4 @@
+pub mod material;
 pub mod canvas;
 pub mod color;
 mod common;

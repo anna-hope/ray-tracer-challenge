@@ -44,7 +44,7 @@ fn main() {
     let transformation = Matrix::identity()
         .shear(1., 0., 0., 0., 0., 0.)
         .scale(0.5, 1., 1.);
-    let shape = Sphere::with_transformation(transformation);
+    let shape = Sphere::new().with_transformation(transformation);
 
     let progress_bar = ProgressBar::new(canvas_width as u64);
     let progress_style =

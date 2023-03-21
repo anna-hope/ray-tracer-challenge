@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
     intersection::{Intersect, Intersection, Ray},
+    material::Material,
     Id, Matrix, ObjectType, SceneObject, SceneObjectType, Tuple,
 };
 
@@ -9,19 +10,26 @@ use crate::{
 pub struct Sphere {
     id: usize,
     transformation: Matrix,
+    material: Material,
 }
 
 impl Sphere {
     /// Instantiates a new Sphere with an auto-incrementing id.
     pub fn new() -> Self {
-        let transformation = Matrix::identity();
-        Self::with_transformation(transformation)
-    }
-
-    pub fn with_transformation(transformation: Matrix) -> Self {
         static COUNTER: AtomicUsize = AtomicUsize::new(1);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        Self { id, transformation }
+        let transformation = Matrix::identity();
+        let material = Material::default();
+        Self {
+            id,
+            transformation,
+            material,
+        }
+    }
+
+    pub fn with_transformation(mut self, transformation: Matrix) -> Self {
+        self.transformation = transformation;
+        self
     }
 
     pub fn normal_at(&self, world_point: Tuple) -> Tuple {
@@ -174,14 +182,14 @@ mod tests {
     #[test]
     fn changing_sphere_transformation() {
         let translation = Matrix::translation(2., 3., 4.);
-        let sphere = Sphere::with_transformation(translation.clone());
+        let sphere = Sphere::new().with_transformation(translation.clone());
         assert_eq!(sphere.transformation, translation);
     }
 
     #[test]
     fn intersect_scaled_sphere_with_ray() {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let sphere = Sphere::with_transformation(Matrix::scaling(2., 2., 2.));
+        let sphere = Sphere::new().with_transformation(Matrix::scaling(2., 2., 2.));
         let xs = sphere.intersect(&ray);
         assert_eq!(xs.len(), 2);
         assert_eq!(xs[0].t, 3.);
@@ -191,7 +199,7 @@ mod tests {
     #[test]
     fn intersect_translated_sphere_with_ray() {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let sphere = Sphere::with_transformation(Matrix::translation(5., 0., 0.));
+        let sphere = Sphere::new().with_transformation(Matrix::translation(5., 0., 0.));
         let xs = sphere.intersect(&ray);
         assert_eq!(xs.len(), 0);
     }
@@ -235,7 +243,7 @@ mod tests {
 
     #[test]
     fn compute_normal_translated_sphere() {
-        let sphere = Sphere::with_transformation(Matrix::translation(0., 1., 0.));
+        let sphere = Sphere::new().with_transformation(Matrix::translation(0., 1., 0.));
         let normal = sphere.normal_at(Tuple::point(0., 1.70711, -0.70711));
         assert_eq!(normal, Tuple::vector(0., 0.70711, -0.70711));
     }
@@ -243,7 +251,7 @@ mod tests {
     #[test]
     fn compute_normal_transformed_sphere() {
         let matrix = Matrix::identity().rotate_z(PI / 5.).scale(1., 0.5, 1.);
-        let sphere = Sphere::with_transformation(matrix);
+        let sphere = Sphere::new().with_transformation(matrix);
         let val = 2.0_f64.sqrt() / 2.;
         let normal = sphere.normal_at(Tuple::point(0., val, -val));
         assert_eq!(normal, Tuple::vector(0., 0.97014, -0.24254));

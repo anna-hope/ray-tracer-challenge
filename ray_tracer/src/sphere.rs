@@ -24,8 +24,18 @@ impl Sphere {
         Self { id, transformation }
     }
 
-    pub fn normal_at(&self, point: Tuple) -> Tuple {
-        (point - Tuple::point(0., 0., 0.)).norm()
+    pub fn normal_at(&self, world_point: Tuple) -> Tuple {
+        let transformation_inverse = self
+            .transformation
+            .inverse()
+            .expect("Sphere transformation matrix should be invertible");
+        let object_point = transformation_inverse.clone() * world_point;
+        let object_normal = object_point - Tuple::point(0., 0., 0.);
+        let mut world_normal = transformation_inverse.transpose() * object_normal;
+
+        // hack to avoid having to find the submatrix of the transformation
+        world_normal.w = 0.;
+        world_normal.norm()
     }
 }
 
@@ -88,6 +98,7 @@ impl SceneObject for Sphere {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::f64::consts::PI;
 
     #[test]
     fn two_spheres_have_different_ids() {
@@ -220,5 +231,21 @@ mod tests {
         let val = 3.0_f64.sqrt() / 3.;
         let normal = sphere.normal_at(Tuple::point(val, val, val));
         assert_eq!(normal, normal.norm());
+    }
+
+    #[test]
+    fn compute_normal_translated_sphere() {
+        let sphere = Sphere::with_transformation(Matrix::translation(0., 1., 0.));
+        let normal = sphere.normal_at(Tuple::point(0., 1.70711, -0.70711));
+        assert_eq!(normal, Tuple::vector(0., 0.70711, -0.70711));
+    }
+
+    #[test]
+    fn compute_normal_transformed_sphere() {
+        let matrix = Matrix::identity().rotate_z(PI / 5.).scale(1., 0.5, 1.);
+        let sphere = Sphere::with_transformation(matrix);
+        let val = 2.0_f64.sqrt() / 2.;
+        let normal = sphere.normal_at(Tuple::point(0., val, -val));
+        assert_eq!(normal, Tuple::vector(0., 0.97014, -0.24254));
     }
 }

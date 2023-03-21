@@ -8,16 +8,24 @@ use crate::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct Sphere {
     id: usize,
-    pub transformation: Matrix,
+    transformation: Matrix,
 }
 
 impl Sphere {
     /// Instantiates a new Sphere with an auto-incrementing id.
     pub fn new() -> Self {
+        let transformation = Matrix::identity();
+        Self::with_transformation(transformation)
+    }
+
+    pub fn with_transformation(transformation: Matrix) -> Self {
         static COUNTER: AtomicUsize = AtomicUsize::new(1);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let transformation = Matrix::identity();
         Self { id, transformation }
+    }
+
+    pub fn normal_at(&self, point: Tuple) -> Tuple {
+        (point - Tuple::point(0., 0., 0.)).norm()
     }
 }
 
@@ -154,17 +162,15 @@ mod tests {
 
     #[test]
     fn changing_sphere_transformation() {
-        let mut sphere = Sphere::new();
         let translation = Matrix::translation(2., 3., 4.);
-        sphere.transformation = translation.clone();
+        let sphere = Sphere::with_transformation(translation.clone());
         assert_eq!(sphere.transformation, translation);
     }
 
     #[test]
     fn intersect_scaled_sphere_with_ray() {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let mut sphere = Sphere::new();
-        sphere.transformation = Matrix::scaling(2., 2., 2.);
+        let sphere = Sphere::with_transformation(Matrix::scaling(2., 2., 2.));
         let xs = sphere.intersect(&ray);
         assert_eq!(xs.len(), 2);
         assert_eq!(xs[0].t, 3.);
@@ -174,9 +180,45 @@ mod tests {
     #[test]
     fn intersect_translated_sphere_with_ray() {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let mut sphere = Sphere::new();
-        sphere.transformation = Matrix::translation(5., 0., 0.);
+        let sphere = Sphere::with_transformation(Matrix::translation(5., 0., 0.));
         let xs = sphere.intersect(&ray);
         assert_eq!(xs.len(), 0);
+    }
+
+    #[test]
+    fn normal_on_sphere_x_axis() {
+        let sphere = Sphere::new();
+        let normal = sphere.normal_at(Tuple::point(1., 0., 0.));
+        assert_eq!(normal, Tuple::vector(1., 0., 0.));
+    }
+
+    #[test]
+    fn normal_on_sphere_y_axis() {
+        let sphere = Sphere::new();
+        let normal = sphere.normal_at(Tuple::point(0., 1., 0.));
+        assert_eq!(normal, Tuple::vector(0., 1., 0.));
+    }
+
+    #[test]
+    fn normal_on_sphere_z_axis() {
+        let sphere = Sphere::new();
+        let normal = sphere.normal_at(Tuple::point(0., 0., 1.));
+        assert_eq!(normal, Tuple::vector(0., 0., 1.));
+    }
+
+    #[test]
+    fn normal_on_sphere_nonaxial() {
+        let sphere = Sphere::new();
+        let val = 3.0_f64.sqrt() / 3.;
+        let normal = sphere.normal_at(Tuple::point(val, val, val));
+        assert_eq!(normal, Tuple::vector(val, val, val));
+    }
+
+    #[test]
+    fn normal_is_normalized_vector() {
+        let sphere = Sphere::new();
+        let val = 3.0_f64.sqrt() / 3.;
+        let normal = sphere.normal_at(Tuple::point(val, val, val));
+        assert_eq!(normal, normal.norm());
     }
 }

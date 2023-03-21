@@ -17,7 +17,13 @@ So, to get a point, you do `Tuple::point(...)`, and likewise for a vector, you d
 
 ### Spheres
 
-- I implemented object on Intersection as a dynamic trait object, so that I can store any object that implements the `SceneObject` trait as the object of the Intersection. 
+- I implemented object on `Intersection` as a dynamic trait object, so that I can store any object that implements the `SceneObject` trait as the object of the Intersection.
 This is uglier than I would like, and prevents simple equality comparisons
-between a Sphere that was downcast to a SceneObject and a Sphere that was not. I tried to implement PartialEq
-for SceneObject and the concrete Sphere type, but it didn't work due to lifetime issues. I'm not sure how to fix this.
+between a `Sphere` that was downcast to a `SceneObject` and a `Sphere` that was not.
+I tried to implement `PartialEq` for `SceneObject` and the concrete `Sphere` type,
+but it didn't work due to lifetime issues. I'm not sure how to fix this.
+
+- For a `Sphere` with a non-default (i.e. non-identity matrix) transformation, the book has you
+instantiate a new `Sphere`, and then set the transformation on that `Sphere`. I thought this was
+kind of awkward, so I added a new `with_transformation` associated function to the `Sphere` struct, which instantiates a new Sphere with the given transformation. Saves a line of code,
+and no longer requires a Sphere to be mutable.

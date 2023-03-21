@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::{fs::File, io::Write};
+use std::{f64::consts::PI, fs::File, io::Write};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -9,7 +9,7 @@ use ray_tracer::{
     color::Color,
     intersection::{hit, Intersect, Ray},
     sphere::Sphere,
-    Tuple,
+    Matrix, Tuple,
 };
 
 struct Projectile {
@@ -40,7 +40,11 @@ fn main() {
 
     let mut canvas = Canvas::new(canvas_width, canvas_width);
     let color = Color::new(1., 0., 0.);
-    let shape = Sphere::new();
+
+    let transformation = Matrix::identity()
+        .shear(1., 0., 0., 0., 0., 0.)
+        .scale(0.5, 1., 1.);
+    let shape = Sphere::with_transformation(transformation);
 
     let progress_bar = ProgressBar::new(canvas_width as u64);
     let progress_style =

@@ -30,6 +30,29 @@ pub trait Intersect {
     fn intersect(&self, ray: &Ray) -> Vec<Intersection>;
 }
 
+pub struct Computations<'a> {
+    pub t: f64,
+    pub object: &'a dyn SceneObject,
+    pub point: Tuple,
+    pub eye_vector: Tuple,
+    pub normal_vector: Tuple,
+    pub inside: bool,
+}
+
+impl<'a> Debug for Computations<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Computations")
+            .field("t", &self.t)
+            .field("object id", &self.object.id())
+            .field("object type", &self.object.object_type())
+            .field("point", &self.point)
+            .field("eye_vector", &self.eye_vector)
+            .field("normal_vector", &self.normal_vector)
+            .field("inside", &self.inside)
+            .finish()
+    }
+}
+
 #[derive(Clone)]
 pub struct Intersection<'a> {
     pub t: f64,
@@ -39,6 +62,35 @@ pub struct Intersection<'a> {
 impl<'a> Intersection<'a> {
     pub fn new(t: f64, object: &'a dyn SceneObject) -> Self {
         Self { t, object }
+    }
+
+    /// Precomputes the point (in world space) where the intersection occurred
+    /// the eye vector (pointing back toward the eye/camera)
+    /// and the normal vector.
+    pub fn prepare_computations(&self, ray: &Ray) -> Computations {
+        let point = ray.position(self.t);
+        let eye_vector = -ray.direction;
+        let normal_vector = self.object.normal_at(point);
+
+        // if the dot product of normal_vector and eye_vector is negative
+        // then they're pointing in (roughly) opposite directions
+        let normal_dot_eye = normal_vector
+            .dot(&eye_vector)
+            .expect("Both normal_vector and eye_vector should be vectors");
+        let (inside, normal_vector) = if normal_dot_eye < 0. {
+            (true, -normal_vector)
+        } else {
+            (false, normal_vector)
+        };
+
+        Computations {
+            t: self.t,
+            object: self.object,
+            point,
+            eye_vector,
+            normal_vector,
+            inside,
+        }
     }
 }
 
@@ -177,5 +229,43 @@ mod tests {
         let ray2 = ray.transform(matrix);
         assert_eq!(ray2.origin, Tuple::point(2., 6., 12.));
         assert_eq!(ray2.direction, Tuple::vector(0., 3., 0.));
+    }
+
+    #[test]
+    fn precompute_state_of_intersection() {
+        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let shape = Sphere::new();
+        let intersection = Intersection::new(4., &shape);
+        let comps = intersection.prepare_computations(&ray);
+        assert_eq!(comps.t, intersection.t);
+        assert_eq!(comps.object.id(), intersection.object.id());
+        assert_eq!(
+            comps.object.object_type(),
+            intersection.object.object_type()
+        );
+        assert_eq!(comps.point, Tuple::point(0., 0., -1.));
+        assert_eq!(comps.eye_vector, Tuple::vector(0., 0., -1.));
+        assert_eq!(comps.normal_vector, Tuple::vector(0., 0., -1.));
+    }
+
+    #[test]
+    fn hit_when_intersection_outside() {
+        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let shape = Sphere::new();
+        let intersection = Intersection::new(4., &shape);
+        let comps = intersection.prepare_computations(&ray);
+        assert!(!comps.inside);
+    }
+
+    #[test]
+    fn hit_when_intersection_inside() {
+        let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
+        let shape = Sphere::new();
+        let intersection = Intersection::new(1., &shape);
+        let comps = intersection.prepare_computations(&ray);
+        assert_eq!(comps.point, Tuple::point(0., 0., 1.));
+        assert_eq!(comps.eye_vector, Tuple::vector(0., 0., -1.));
+        assert!(comps.inside);
+        assert_eq!(comps.normal_vector, Tuple::vector(0., 0., -1.));
     }
 }

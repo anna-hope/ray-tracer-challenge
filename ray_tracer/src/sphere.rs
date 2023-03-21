@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::{
     intersection::{Intersect, Intersection, Ray},
     material::Material,
-    Id, Matrix, ObjectType, SceneObject, SceneObjectType, Tuple,
+    Id, Matrix, NormalAt, ObjectType, SceneObject, SceneObjectType, Tuple,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -35,20 +35,6 @@ impl Sphere {
     pub fn with_material(mut self, material: Material) -> Self {
         self.material = material;
         self
-    }
-
-    pub fn normal_at(&self, world_point: Tuple) -> Tuple {
-        let transformation_inverse = self
-            .transformation
-            .inverse()
-            .expect("Sphere transformation matrix should be invertible");
-        let object_point = transformation_inverse.clone() * world_point;
-        let object_normal = object_point - Tuple::point(0., 0., 0.);
-        let mut world_normal = transformation_inverse.transpose() * object_normal;
-
-        // hack to avoid having to find the submatrix of the transformation
-        world_normal.w = 0.;
-        world_normal.norm()
     }
 }
 
@@ -103,6 +89,22 @@ impl Intersect for Sphere {
         let i1 = Intersection::new(t1, self);
         let i2 = Intersection::new(t2, self);
         vec![i1, i2]
+    }
+}
+
+impl NormalAt for Sphere {
+    fn normal_at(&self, world_point: Tuple) -> Tuple {
+        let transformation_inverse = self
+            .transformation
+            .inverse()
+            .expect("Sphere transformation matrix should be invertible");
+        let object_point = transformation_inverse.clone() * world_point;
+        let object_normal = object_point - Tuple::point(0., 0., 0.);
+        let mut world_normal = transformation_inverse.transpose() * object_normal;
+
+        // hack to avoid having to find the submatrix of the transformation
+        world_normal.w = 0.;
+        world_normal.norm()
     }
 }
 

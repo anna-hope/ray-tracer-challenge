@@ -1,9 +1,9 @@
-pub mod material;
 pub mod canvas;
 pub mod color;
 mod common;
 pub mod intersection;
 pub mod light;
+pub mod material;
 mod matrix;
 pub mod sphere;
 mod tuple;
@@ -26,7 +26,11 @@ pub trait ObjectType {
     fn object_type(&self) -> SceneObjectType;
 }
 
-pub trait SceneObject: intersection::Intersect + ObjectType + Id {}
+pub trait NormalAt {
+    fn normal_at(&self, world_point: Tuple) -> Tuple;
+}
+
+pub trait SceneObject: intersection::Intersect + ObjectType + Id + NormalAt {}
 
 impl PartialEq for dyn SceneObject {
     fn eq(&self, other: &Self) -> bool {

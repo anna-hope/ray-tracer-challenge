@@ -18,19 +18,18 @@ pub enum SceneObjectType {
     Sphere,
 }
 
-pub trait Id {
-    fn id(&self) -> usize;
-}
-
-pub trait ObjectType {
-    fn object_type(&self) -> SceneObjectType;
-}
-
-pub trait NormalAt {
+pub trait SceneObject: intersection::Intersect {
+    /// Compute the normal vector at the world point.
     fn normal_at(&self, world_point: Tuple) -> Tuple;
-}
 
-pub trait SceneObject: intersection::Intersect + ObjectType + Id + NormalAt {}
+    /// Get object id.
+    fn id(&self) -> usize;
+
+    /// Get object type.
+    fn object_type(&self) -> SceneObjectType;
+
+    fn material(&self) -> material::Material;
+}
 
 impl PartialEq for dyn SceneObject {
     fn eq(&self, other: &Self) -> bool {

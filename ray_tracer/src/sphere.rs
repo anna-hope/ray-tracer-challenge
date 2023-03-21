@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::{
     intersection::{Intersect, Intersection, Ray},
     material::Material,
-    Id, Matrix, NormalAt, ObjectType, SceneObject, SceneObjectType, Tuple,
+    Matrix, SceneObject, SceneObjectType, Tuple,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -44,18 +44,6 @@ impl Default for Sphere {
     }
 }
 
-impl Id for Sphere {
-    fn id(&self) -> usize {
-        self.id
-    }
-}
-
-impl ObjectType for Sphere {
-    fn object_type(&self) -> SceneObjectType {
-        SceneObjectType::Sphere
-    }
-}
-
 impl Intersect for Sphere {
     /// Calculates the intersection of a sphere and a ray
     /// Returns a Vec of two elements if there is an intersection
@@ -92,7 +80,14 @@ impl Intersect for Sphere {
     }
 }
 
-impl NormalAt for Sphere {
+impl SceneObject for Sphere {
+    fn object_type(&self) -> SceneObjectType {
+        SceneObjectType::Sphere
+    }
+    fn id(&self) -> usize {
+        self.id
+    }
+
     fn normal_at(&self, world_point: Tuple) -> Tuple {
         let transformation_inverse = self
             .transformation
@@ -106,9 +101,11 @@ impl NormalAt for Sphere {
         world_normal.w = 0.;
         world_normal.norm()
     }
-}
 
-impl SceneObject for Sphere {}
+    fn material(&self) -> Material {
+        self.material
+    }
+}
 
 #[cfg(test)]
 mod tests {

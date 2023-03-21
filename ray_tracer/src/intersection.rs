@@ -79,7 +79,7 @@ pub fn hit<'a>(xs: &'a [Intersection]) -> Option<&'a Intersection<'a>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{sphere::Sphere, Id, ObjectType};
+    use crate::sphere::Sphere;
 
     #[test]
     fn create_and_query_ray() {

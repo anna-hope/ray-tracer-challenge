@@ -7,9 +7,11 @@ pub mod material;
 mod matrix;
 pub mod sphere;
 mod tuple;
+pub mod world;
 
 use std::fmt::Debug;
 
+pub use color::Color;
 pub use matrix::Matrix;
 pub use tuple::Tuple;
 

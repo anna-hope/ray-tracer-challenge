@@ -30,6 +30,7 @@ pub trait Intersect {
     fn intersect(&self, ray: &Ray) -> Vec<Intersection>;
 }
 
+#[derive(Clone)]
 pub struct Intersection<'a> {
     pub t: f64,
     pub object: &'a dyn SceneObject,
@@ -59,7 +60,9 @@ impl<'a> Debug for Intersection<'a> {
     }
 }
 
-pub fn hit<'a>(xs: &'a [&'a Intersection]) -> Option<&'a Intersection<'a>> {
+/// Finds the intersection that hits the object.
+/// Always picks the lowest non-negative intersection (intersection with the smallest t > 0).
+pub fn hit<'a>(xs: &'a [Intersection]) -> Option<&'a Intersection<'a>> {
     let mut lowest_nonnegative_intersection: Option<&Intersection> = None;
     for intersection in xs {
         if let Some(i) = lowest_nonnegative_intersection {
@@ -111,7 +114,7 @@ mod tests {
         let sphere = Sphere::new();
         let i1 = Intersection::new(1., &sphere);
         let i2 = Intersection::new(2., &sphere);
-        let xs = &[&i1, &i2];
+        let xs = &[i1.clone(), i2.clone()];
         assert_eq!(xs[0].t, 1.);
         assert_eq!(xs[1].t, 2.);
     }
@@ -121,7 +124,7 @@ mod tests {
         let sphere = Sphere::new();
         let i1 = Intersection::new(1., &sphere);
         let i2 = Intersection::new(2., &sphere);
-        let xs = &[&i1, &i2];
+        let xs = &[i1.clone(), i2.clone()];
         let intersection = hit(xs).unwrap();
         assert_eq!(intersection, &i1);
     }
@@ -131,7 +134,7 @@ mod tests {
         let sphere = Sphere::new();
         let i1 = Intersection::new(-1., &sphere);
         let i2 = Intersection::new(1., &sphere);
-        let xs = &[&i1, &i2];
+        let xs = &[i1.clone(), i2.clone()];
         let intersection = hit(xs).unwrap();
         assert_eq!(intersection, &i2);
     }
@@ -141,7 +144,7 @@ mod tests {
         let sphere = Sphere::new();
         let i1 = Intersection::new(-2., &sphere);
         let i2 = Intersection::new(-1., &sphere);
-        let xs = &[&i1, &i2];
+        let xs = &[i1, i2];
         let intersection = hit(xs);
         assert!(intersection.is_none());
     }
@@ -153,7 +156,7 @@ mod tests {
         let i2 = Intersection::new(7., &sphere);
         let i3 = Intersection::new(-3., &sphere);
         let i4 = Intersection::new(2., &sphere);
-        let xs = &[&i1, &i2, &i3, &i4];
+        let xs = &[i1.clone(), i2.clone(), i3.clone(), i4.clone()];
         let intersection = hit(xs).unwrap();
         assert_eq!(intersection, &i4);
     }

@@ -12,6 +12,7 @@ pub mod world;
 use std::fmt::Debug;
 
 pub use color::Color;
+pub use intersection::Ray;
 pub use matrix::Matrix;
 pub use tuple::Tuple;
 

@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write};
+use std::{f64::consts::PI, fs::File, io::Write};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -24,20 +24,17 @@ fn main() {
 
     let mut canvas = Canvas::new(canvas_width, canvas_width);
 
-    let _transformation = Matrix::identity()
-        .shear(0., 0., 0., 0., 0., 0.)
-        .scale(0.5, 1., 1.);
     let mut material = Material::default();
     material.color = Color::new(0., 1., 1.); // cyan
 
+    let transformation = Matrix::identity().scale(1., 0.5, 1.).rotate_z(PI / 2.);
     let shape = Sphere::new()
-        // .with_transformation(transformation)
+        .with_transformation(transformation)
         .with_material(material);
 
+    // add a light source, with a white light behind, above, and to the left of the eye
     let light_position = Tuple::point(-10., 10., -10.);
     let light_color = Color::white();
-
-    // add a light source, with a white light behind, above, and to the left of the eye
     let light = PointLight::new(light_position, light_color);
 
     let progress_bar = ProgressBar::new(canvas_width as u64);

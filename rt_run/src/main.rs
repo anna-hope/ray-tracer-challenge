@@ -1,6 +1,4 @@
-#![allow(dead_code)]
-
-use std::{f64::consts::PI, fs::File, io::Write};
+use std::{fs::File, io::Write};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -8,25 +6,11 @@ use ray_tracer::{
     canvas::Canvas,
     color::Color,
     intersection::{hit, Intersect, Ray},
+    light::PointLight,
+    material::Material,
     sphere::Sphere,
     Matrix, Tuple,
 };
-
-struct Projectile {
-    position: Tuple,
-    velocity: Tuple,
-}
-
-struct Environment {
-    gravity: Tuple,
-    wind: Tuple,
-}
-
-fn tick(env: &Environment, proj: &Projectile) -> Projectile {
-    let position = proj.position + proj.velocity;
-    let velocity = proj.velocity + env.gravity + env.wind;
-    Projectile { position, velocity }
-}
 
 fn main() {
     println!("Rendering...");
@@ -39,12 +23,22 @@ fn main() {
     let half = wall_size / 2.;
 
     let mut canvas = Canvas::new(canvas_width, canvas_width);
-    let color = Color::new(1., 0., 0.);
 
-    let transformation = Matrix::identity()
-        .shear(1., 0., 0., 0., 0., 0.)
-        .scale(0.5, 1., 1.);
-    let shape = Sphere::new().with_transformation(transformation);
+    // let transformation = Matrix::identity()
+    //     .shear(0., 0., 0., 0., 0., 0.)
+    //     .scale(0.5, 1., 1.);
+    let mut material = Material::default();
+    material.color = Color::new(0., 1., 1.); // cyan
+
+    let shape = Sphere::new()
+        // .with_transformation(transformation)
+        .with_material(material);
+
+    let light_position = Tuple::point(-10., 10., -10.);
+    let light_color = Color::white();
+
+    // add a light source, with a white light behind, above, and to the left of the eye
+    let light = PointLight::new(light_position, light_color);
 
     let progress_bar = ProgressBar::new(canvas_width as u64);
     let progress_style =
@@ -67,7 +61,15 @@ fn main() {
             let ray = Ray::new(ray_origin, normalized_direction);
 
             let xs = shape.intersect(&ray);
-            if hit(&xs).is_some() {
+            if let Some(hit) = hit(&xs) {
+                let point = ray.position(hit.t);
+                let normal_vector = hit.object.normal_at(point);
+                let eye_vector = ray.direction;
+                let color = hit
+                    .object
+                    .material()
+                    .lighting(light, point, eye_vector, normal_vector);
+
                 canvas.write_pixel(x, y, color);
             }
         }

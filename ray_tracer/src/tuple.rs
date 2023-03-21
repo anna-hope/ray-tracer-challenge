@@ -8,10 +8,8 @@ type Result<T> = std::result::Result<T, TupleError>;
 
 #[derive(Debug, Error)]
 pub enum TupleError {
-    #[error("Attempt to get dot product of non-vector tuples")]
-    NonVectorDot,
-    #[error("Attempt to get cross product of non-vector tuples")]
-    NonVectorCross,
+    #[error("Attempt to use non-vector tuples in a vector-only context")]
+    NonVector,
 }
 
 pub enum TupleKind {
@@ -70,7 +68,7 @@ impl Tuple {
         // but thanks to Rust, we can do better --
         // return an actual error if that's what someone tried to do
         if !matches!(self.kind(), TupleKind::Vector) || !matches!(other.kind(), TupleKind::Vector) {
-            return Err(TupleError::NonVectorDot);
+            return Err(TupleError::NonVector);
         }
 
         // the w (last component) for vectors is always 0, so no need to include it
@@ -80,7 +78,7 @@ impl Tuple {
     pub fn cross(&self, other: &Self) -> Result<Self> {
         // ditto as with dot about returning error for non-vector operands
         if !matches!(self.kind(), TupleKind::Vector) || !matches!(other.kind(), TupleKind::Vector) {
-            return Err(TupleError::NonVectorCross);
+            return Err(TupleError::NonVector);
         }
 
         // only implemented for the three-dimensional case,
@@ -90,6 +88,14 @@ impl Tuple {
             self.z * other.x - self.x * other.z,
             self.x * other.y - self.y * other.x,
         ))
+    }
+
+    pub fn reflect(self, normal: Self) -> Result<Self> {
+        if !matches!(self.kind(), TupleKind::Vector) || !matches!(normal.kind(), TupleKind::Vector)
+        {
+            return Err(TupleError::NonVector);
+        }
+        Ok(self - normal * 2. * self.dot(&normal)?)
     }
 }
 
@@ -338,5 +344,22 @@ mod tests {
         let b = Tuple::vector(2.0, 3.0, 4.0);
         assert_eq!(a.cross(&b).unwrap(), Tuple::vector(-1.0, 2.0, -1.0));
         assert_eq!(b.cross(&a).unwrap(), Tuple::vector(1.0, -2.0, 1.0));
+    }
+
+    #[test]
+    fn reflecting_vector_approaching_at_45_degrees() {
+        let vector = Tuple::vector(1., -1., 0.);
+        let normal = Tuple::vector(0., 1., 0.);
+        let reflection = vector.reflect(normal).unwrap();
+        assert_eq!(reflection, Tuple::vector(1., 1., 0.));
+    }
+
+    #[test]
+    fn reflecting_vector_off_slanted_surface() {
+        let vector = Tuple::vector(0., -1., 0.);
+        let val = 2.0_f64.sqrt() / 2.;
+        let normal = Tuple::vector(val, val, 0.);
+        let reflection = vector.reflect(normal).unwrap();
+        assert_eq!(reflection, Tuple::vector(1., 0., 0.));
     }
 }

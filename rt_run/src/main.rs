@@ -1,8 +1,16 @@
 #![allow(dead_code)]
 
-use std::{f64::consts::PI, fs::File, io::Write};
+use std::{fs::File, io::Write};
 
-use ray_tracer::{canvas::Canvas, color::Color, Matrix, Tuple};
+use indicatif::{ProgressBar, ProgressStyle};
+
+use ray_tracer::{
+    canvas::Canvas,
+    color::Color,
+    intersection::{hit, Intersect, Ray},
+    sphere::Sphere,
+    Tuple,
+};
 
 struct Projectile {
     position: Tuple,
@@ -21,29 +29,47 @@ fn tick(env: &Environment, proj: &Projectile) -> Projectile {
 }
 
 fn main() {
-    let color = Color::new(1.0, 1.0, 1.0);
+    println!("Rendering...");
+    let ray_origin = Tuple::point(0., 0., -5.);
+    let wall_z = 10.;
 
-    let canvas_width = 300;
+    let canvas_width = 500;
+    let wall_size = 7.;
+    let pixel_size = wall_size / canvas_width as f64;
+    let half = wall_size / 2.;
+
     let mut canvas = Canvas::new(canvas_width, canvas_width);
-    let center_x = canvas_width / 2;
-    let center_y = center_x;
-    let clock_radius = (canvas_width as f64) * 3. / 8.;
+    let color = Color::new(1., 0., 0.);
+    let shape = Sphere::new();
 
-    let twelve = Tuple::point(0., 0., 1.);
+    let progress_bar = ProgressBar::new(canvas_width as u64);
+    let progress_style =
+        ProgressStyle::with_template("[{elapsed}] {eta} {bar} {pos:>7}/{len:7} {percent}% {msg}")
+            .unwrap();
+    progress_bar.set_style(progress_style);
 
-    for num in 0..12 {
-        let rotation = Matrix::rotation_y((num as f64) * PI / 6.);
-        let point = rotation * twelve;
+    // for each row of pixels in the canvas
+    for y in 0..canvas_width - 1 {
+        progress_bar.inc(1);
+        // compute the world y coordinates
+        let world_y = half - (pixel_size * y as f64);
 
-        // need to add center_x and center_y *before* we convert f64 to usize
-        // because when a negative f64 is converted to usize, it turns to 0
-        let canvas_x = (point.x * clock_radius + center_x as f64).round() as usize;
-        let canvas_y = (point.z * clock_radius + center_y as f64).round() as usize;
+        for x in 0..canvas_width - 1 {
+            let world_x = -half + (pixel_size * x as f64);
 
-        canvas.write_pixel(canvas_x, canvas_y, color);
+            // describe the point on the wall that the ray will target
+            let position = Tuple::point(world_x, world_y, wall_z);
+            let normalized_direction = (position - ray_origin).norm();
+            let ray = Ray::new(ray_origin, normalized_direction);
+
+            let xs = shape.intersect(&ray);
+            if hit(&xs).is_some() {
+                canvas.write_pixel(x, y, color);
+            }
+        }
     }
 
     let ppm = canvas.to_ppm();
-    let mut buffer = File::create("clock.ppm").unwrap();
+    let mut buffer = File::create("sphere.ppm").unwrap();
     buffer.write_all(ppm.as_bytes()).unwrap();
 }

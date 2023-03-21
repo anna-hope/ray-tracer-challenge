@@ -32,6 +32,11 @@ impl Sphere {
         self
     }
 
+    pub fn with_material(mut self, material: Material) -> Self {
+        self.material = material;
+        self
+    }
+
     pub fn normal_at(&self, world_point: Tuple) -> Tuple {
         let transformation_inverse = self
             .transformation
@@ -255,5 +260,19 @@ mod tests {
         let val = 2.0_f64.sqrt() / 2.;
         let normal = sphere.normal_at(Tuple::point(0., val, -val));
         assert_eq!(normal, Tuple::vector(0., 0.97014, -0.24254));
+    }
+
+    #[test]
+    fn sphere_has_default_material() {
+        let sphere = Sphere::new();
+        assert_eq!(sphere.material, Material::default());
+    }
+
+    #[test]
+    fn sphere_may_be_assigned_material() {
+        let mut material = Material::default();
+        material.ambient = 1.;
+        let sphere = Sphere::new().with_material(material);
+        assert_eq!(sphere.material, material);
     }
 }

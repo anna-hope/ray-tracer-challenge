@@ -2,6 +2,7 @@ pub mod canvas;
 pub mod color;
 mod common;
 pub mod intersection;
+pub mod light;
 mod matrix;
 pub mod sphere;
 mod tuple;

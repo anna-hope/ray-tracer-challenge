@@ -7,7 +7,7 @@ pub mod light;
 pub mod material;
 mod matrix;
 pub mod sphere;
-mod transformation;
+pub mod transformation;
 mod tuple;
 pub mod world;
 

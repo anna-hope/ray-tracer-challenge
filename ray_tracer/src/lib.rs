@@ -1,4 +1,4 @@
-mod camera;
+pub mod camera;
 pub mod canvas;
 pub mod color;
 mod error;

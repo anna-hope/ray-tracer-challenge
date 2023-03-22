@@ -35,6 +35,11 @@ impl Camera {
         }
     }
 
+    pub fn with_transformation(mut self, transformation: Matrix) -> Self {
+        self.transformation = transformation;
+        self
+    }
+
     /// Computes the world coordinates at the center of the given pixel,
     /// then constructs a ray that passes through that point.
     fn ray_for_pixel(&self, px: usize, py: usize) -> Result<Ray> {
@@ -120,8 +125,8 @@ mod tests {
 
     #[test]
     fn construct_ray_when_camera_is_transformed() {
-        let mut camera = Camera::new(201, 101, PI / 2.);
-        camera.transformation = Matrix::identity().translate(0., -2., 5.).rotate_y(PI / 4.);
+        let camera = Camera::new(201, 101, PI / 2.)
+            .with_transformation(Matrix::identity().translate(0., -2., 5.).rotate_y(PI / 4.));
         let ray = camera.ray_for_pixel(100, 50).unwrap();
         assert_eq!(ray.origin, Tuple::point(0., 2., -5.));
 
@@ -132,11 +137,11 @@ mod tests {
     #[test]
     fn rendering_world_with_camera() {
         let world = World::default();
-        let mut camera = Camera::new(11, 11, PI / 2.);
         let from = Tuple::point(0., 0., -5.);
         let to = Tuple::point(0., 0., 0.);
         let up = Tuple::vector(0., 1., 0.);
-        camera.transformation = compute_view_transformation(from, to, up).unwrap();
+        let camera = Camera::new(11, 11, PI / 2.)
+            .with_transformation(compute_view_transformation(from, to, up).unwrap());
         let image = camera.render(&world).unwrap();
         assert_eq!(image.pixel_at(5, 5), Color::new(0.38066, 0.47583, 0.2855));
     }

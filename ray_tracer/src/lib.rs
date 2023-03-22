@@ -1,13 +1,13 @@
+mod camera;
 pub mod canvas;
 pub mod color;
-mod common;
 mod error;
 pub mod intersection;
 pub mod light;
 pub mod material;
 mod matrix;
 pub mod sphere;
-pub mod transformation;
+mod transformation;
 mod tuple;
 pub mod world;
 
@@ -20,6 +20,8 @@ pub use matrix::Matrix;
 pub use tuple::Tuple;
 
 type Result<T> = std::result::Result<T, RayTracerError>;
+
+const EPSILON: f64 = 1e-5;
 
 #[derive(Debug, PartialEq)]
 pub enum SceneObjectType {
@@ -60,5 +62,23 @@ impl Debug for dyn SceneObject {
             .field("type", &self.object_type())
             .field("id", &self.id())
             .finish()
+    }
+}
+
+pub fn equal(a: f64, b: f64) -> bool {
+    let c = a - b;
+    c.abs() < EPSILON
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn two_floats_equal() {
+        let a = 1.0;
+        let b = 1.00000001;
+        assert!(equal(a, b));
     }
 }

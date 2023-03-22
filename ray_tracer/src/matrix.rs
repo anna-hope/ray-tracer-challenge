@@ -2,8 +2,7 @@ use std::ops::{Index, IndexMut, Mul};
 
 use thiserror::Error;
 
-use crate::common::equal;
-use crate::Tuple;
+use crate::{equal, Tuple};
 
 type Result<T> = std::result::Result<T, MatrixError>;
 

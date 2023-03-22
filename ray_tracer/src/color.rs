@@ -3,7 +3,7 @@
 
 use std::ops::{Add, Mul, Sub};
 
-use crate::common::equal;
+use crate::equal;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Color {

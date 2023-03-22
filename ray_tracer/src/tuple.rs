@@ -1,6 +1,6 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use crate::{common::equal, error::RayTracerError, Result};
+use crate::{equal, error::RayTracerError, Result};
 
 pub enum TupleKind {
     Point,

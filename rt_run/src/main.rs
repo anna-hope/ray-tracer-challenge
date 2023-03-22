@@ -1,81 +1,103 @@
 use std::{f64::consts::PI, fs::File, io::Write};
 
-use indicatif::{ProgressBar, ProgressStyle};
-
 use ray_tracer::{
-    canvas::Canvas,
-    color::Color,
-    intersection::{hit, Intersect, Ray},
-    light::PointLight,
-    material::Material,
-    sphere::Sphere,
-    Matrix, Tuple,
+    camera, color::Color, light::PointLight, material::Material, sphere::Sphere, transformation,
+    world::World, Matrix, Tuple,
 };
 
 fn main() {
     println!("Rendering...");
-    let ray_origin = Tuple::point(0., 0., -5.);
-    let wall_z = 10.;
 
-    let canvas_width = 500;
-    let wall_size = 7.;
-    let pixel_size = wall_size / canvas_width as f64;
-    let half = wall_size / 2.;
-
-    let mut canvas = Canvas::new(canvas_width, canvas_width);
-
-    let cyan = Color::new(0., 1., 1.);
-    let material = Material {
-        color: cyan,
+    let floor_transformation = Matrix::scaling(10., 0.01, 10.);
+    let floor_material = Material {
+        color: Color::new(1., 0.9, 0.9),
+        specular: 0.,
         ..Default::default()
     };
+    let floor = Sphere::new()
+        .with_transformation(floor_transformation)
+        .with_material(floor_material.clone());
 
-    let transformation = Matrix::identity().scale(1., 0.5, 1.).rotate_z(PI / 2.);
-    let shape = Sphere::new()
-        .with_transformation(transformation)
-        .with_material(material);
+    let left_wall_transformation = Matrix::identity()
+        .scale(10., 0.01, 10.)
+        .rotate_x(-PI / 2.)
+        .rotate_y(-PI / 4.)
+        .translate(0., 0., 5.);
+    let left_wall = Sphere::new()
+        .with_transformation(left_wall_transformation)
+        .with_material(floor_material.clone());
 
-    // add a light source, with a white light behind, above, and to the left of the eye
-    let light_position = Tuple::point(-10., 10., -10.);
-    let light_color = Color::white();
-    let light = PointLight::new(light_position, light_color);
+    let right_wall_transformation = Matrix::identity()
+        .scale(10., 0.01, 10.)
+        .rotate_x(PI / 2.)
+        .rotate_y(PI / 4.)
+        .translate(0., 0., 5.);
+    let right_wall = Sphere::new()
+        .with_transformation(right_wall_transformation)
+        .with_material(floor_material.clone());
 
-    let progress_bar = ProgressBar::new(canvas_width as u64);
-    let progress_style =
-        ProgressStyle::with_template("[{elapsed}] {eta} {bar} {pos:>7}/{len:7} {percent}% {msg}")
-            .unwrap();
-    progress_bar.set_style(progress_style);
+    let middle_sphere_transformation = Matrix::translation(-0.5, 1., 0.5);
+    let middle_sphere_material = Material {
+        color: Color::new(0.1, 1., 0.5),
+        diffuse: 0.7,
+        specular: 0.3,
+        ..Default::default()
+    };
+    let middle_sphere = Sphere::new()
+        .with_material(middle_sphere_material)
+        .with_transformation(middle_sphere_transformation);
 
-    // for each row of pixels in the canvas
-    for y in 0..canvas_width - 1 {
-        progress_bar.inc(1);
-        // compute the world y coordinates
-        let world_y = half - (pixel_size * y as f64);
+    let right_sphere_transformation = Matrix::identity()
+        .scale(0.5, 0.5, 0.5)
+        .translate(1.5, 0.5, -0.5);
+    let right_sphere_material = Material {
+        color: Color::new(0.5, 1., 0.1),
+        diffuse: 0.7,
+        specular: 0.3,
+        ..Default::default()
+    };
+    let right_sphere = Sphere::new()
+        .with_transformation(right_sphere_transformation)
+        .with_material(right_sphere_material);
 
-        for x in 0..canvas_width - 1 {
-            let world_x = -half + (pixel_size * x as f64);
+    let left_sphere_transformation = Matrix::identity()
+        .scale(0.33, 0.33, 0.33)
+        .translate(-1.5, 0.33, -0.75);
+    let left_sphere_material = Material {
+        color: Color::new(1., 0.8, 0.1),
+        diffuse: 0.7,
+        specular: 0.3,
+        ..Default::default()
+    };
+    let left_sphere = Sphere::new()
+        .with_transformation(left_sphere_transformation)
+        .with_material(left_sphere_material);
 
-            // describe the point on the wall that the ray will target
-            let position = Tuple::point(world_x, world_y, wall_z);
-            let normalized_direction = (position - ray_origin).norm();
-            let ray = Ray::new(ray_origin, normalized_direction);
+    let world = World {
+        light: Some(PointLight::new(
+            Tuple::point(-10., 10., -10.),
+            Color::white(),
+        )),
+        objects: vec![
+            Box::new(floor),
+            Box::new(left_wall),
+            Box::new(right_wall),
+            Box::new(left_sphere),
+            Box::new(middle_sphere),
+            Box::new(right_sphere),
+        ],
+    };
 
-            let xs = shape.intersect(&ray);
-            if let Some(hit) = hit(&xs) {
-                let point = ray.position(hit.t);
-                let normal_vector = hit.object.normal_at(point);
-                let eye_vector = -ray.direction;
-                let color = hit
-                    .object
-                    .material()
-                    .lighting(light, point, eye_vector, normal_vector);
-
-                canvas.write_pixel(x, y, color);
-            }
-        }
-    }
+    let camera_transformation = transformation::compute_view_transformation(
+        Tuple::point(0., 1.5, -5.),
+        Tuple::point(0., 1., 0.),
+        Tuple::vector(0., 1., 0.),
+    )
+    .expect("Should compute camera transformation");
+    let camera = camera::Camera::new(1000, 500, PI / 3.).with_transformation(camera_transformation);
+    let canvas = camera.render(&world).expect("Should render the image");
 
     let ppm = canvas.to_ppm();
-    let mut buffer = File::create("sphere.ppm").unwrap();
+    let mut buffer = File::create("world.ppm").unwrap();
     buffer.write_all(ppm.as_bytes()).unwrap();
 }

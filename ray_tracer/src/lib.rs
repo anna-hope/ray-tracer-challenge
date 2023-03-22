@@ -22,21 +22,25 @@ pub enum SceneObjectType {
 }
 
 pub trait SceneObject: intersection::Intersect {
-    /// Compute the normal vector at the world point.
+    /// Computes the normal vector at the world point.
     fn normal_at(&self, world_point: Tuple) -> Tuple;
 
-    /// Get object id.
+    /// Gets object id.
     fn id(&self) -> usize;
 
-    /// Get object type.
+    /// Gets object type.
     fn object_type(&self) -> SceneObjectType;
 
     fn material(&self) -> material::Material;
 
-    /// Get an intersection with an arbitrary t for this object.
+    /// Gets an intersection with an arbitrary t for this object.
     /// This is needed primarily for testing, because we can't construct
     /// an intersection with a boxed trait object due to type incompatibility.
-    fn arbitrary_intersection<'a>(&'a self, t: f64) -> intersection::Intersection;
+    fn arbitrary_intersection(&self, t: f64) -> intersection::Intersection;
+
+    /// Sets the object material to the given material.
+    /// Needed primarily for testing.
+    fn set_material(&mut self, material: material::Material);
 }
 
 impl PartialEq for dyn SceneObject {

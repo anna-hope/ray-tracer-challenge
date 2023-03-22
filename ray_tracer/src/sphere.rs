@@ -106,8 +106,12 @@ impl SceneObject for Sphere {
         self.material
     }
 
-    fn arbitrary_intersection<'a>(&'a self, t: f64) -> Intersection {
+    fn arbitrary_intersection(&self, t: f64) -> Intersection {
         Intersection { t, object: self }
+    }
+
+    fn set_material(&mut self, material: Material) {
+        self.material = material;
     }
 }
 

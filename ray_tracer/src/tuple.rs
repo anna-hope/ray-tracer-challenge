@@ -1,16 +1,6 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use thiserror::Error;
-
-use crate::common::equal;
-
-type Result<T> = std::result::Result<T, TupleError>;
-
-#[derive(Debug, Error)]
-pub enum TupleError {
-    #[error("Attempt to use non-vector tuples in a vector-only context")]
-    NonVector,
-}
+use crate::{common::equal, error::RayTracerError, Result};
 
 pub enum TupleKind {
     Point,
@@ -68,7 +58,7 @@ impl Tuple {
         // but thanks to Rust, we can do better --
         // return an actual error if that's what someone tried to do
         if !matches!(self.kind(), TupleKind::Vector) || !matches!(other.kind(), TupleKind::Vector) {
-            return Err(TupleError::NonVector);
+            return Err(RayTracerError::NonVectorTuple);
         }
 
         // the w (last component) for vectors is always 0, so no need to include it
@@ -78,7 +68,7 @@ impl Tuple {
     pub fn cross(&self, other: &Self) -> Result<Self> {
         // ditto as with dot about returning error for non-vector operands
         if !matches!(self.kind(), TupleKind::Vector) || !matches!(other.kind(), TupleKind::Vector) {
-            return Err(TupleError::NonVector);
+            return Err(RayTracerError::NonVectorTuple);
         }
 
         // only implemented for the three-dimensional case,
@@ -93,7 +83,7 @@ impl Tuple {
     pub fn reflect(self, normal: Self) -> Result<Self> {
         if !matches!(self.kind(), TupleKind::Vector) || !matches!(normal.kind(), TupleKind::Vector)
         {
-            return Err(TupleError::NonVector);
+            return Err(RayTracerError::NonVectorTuple);
         }
         Ok(self - normal * 2. * self.dot(&normal)?)
     }

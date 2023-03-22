@@ -1,20 +1,25 @@
 pub mod canvas;
 pub mod color;
 mod common;
+mod error;
 pub mod intersection;
 pub mod light;
 pub mod material;
 mod matrix;
 pub mod sphere;
+pub mod transformation;
 mod tuple;
 pub mod world;
 
 use std::fmt::Debug;
 
 pub use color::Color;
+use error::RayTracerError;
 pub use intersection::Ray;
 pub use matrix::Matrix;
 pub use tuple::Tuple;
+
+type Result<T> = std::result::Result<T, RayTracerError>;
 
 #[derive(Debug, PartialEq)]
 pub enum SceneObjectType {

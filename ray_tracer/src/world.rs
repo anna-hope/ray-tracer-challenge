@@ -58,10 +58,12 @@ impl Default for World {
     fn default() -> Self {
         let light = PointLight::new(Tuple::point(-10., 10., -10.), Color::white());
 
-        let mut material = Material::default();
-        material.color = Color::new(0.8, 1.0, 0.6);
-        material.diffuse = 0.7;
-        material.specular = 0.2;
+        let material = Material {
+            color: Color::new(0.8, 1.0, 0.6),
+            diffuse: 0.7,
+            specular: 0.2,
+            ..Default::default()
+        };
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
@@ -79,7 +81,7 @@ impl Intersect for World {
     fn intersect(&self, ray: &Ray) -> Vec<Intersection> {
         let mut xs = vec![];
         for object in &self.objects {
-            let mut intersections = object.intersect(&ray);
+            let mut intersections = object.intersect(ray);
             xs.append(&mut intersections);
         }
         xs.sort_unstable_by(|a, b| a.t.total_cmp(&b.t));

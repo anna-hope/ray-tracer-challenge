@@ -24,8 +24,11 @@ fn main() {
 
     let mut canvas = Canvas::new(canvas_width, canvas_width);
 
-    let mut material = Material::default();
-    material.color = Color::new(0., 1., 1.); // cyan
+    let cyan = Color::new(0., 1., 1.);
+    let material = Material {
+        color: cyan,
+        ..Default::default()
+    };
 
     let transformation = Matrix::identity().scale(1., 0.5, 1.).rotate_z(PI / 2.);
     let shape = Sphere::new()

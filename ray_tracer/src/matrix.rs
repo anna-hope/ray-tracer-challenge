@@ -1,16 +1,6 @@
 use std::ops::{Index, IndexMut, Mul};
 
-use thiserror::Error;
-
-use crate::{equal, Tuple};
-
-type Result<T> = std::result::Result<T, MatrixError>;
-
-#[derive(Debug, Error)]
-pub enum MatrixError {
-    #[error("Attempted to calculate an inverse of a non-invertible matrix")]
-    NonInvertible,
-}
+use crate::{equal, error::RayTracerError, Result, Tuple};
 
 #[derive(Clone, Debug)]
 pub struct Matrix {
@@ -125,7 +115,7 @@ impl Matrix {
 
     pub fn inverse(&self) -> Result<Self> {
         if !self.is_invertible() {
-            return Err(MatrixError::NonInvertible);
+            return Err(RayTracerError::NonInvertibleMatrix);
         }
 
         let (m, n) = self.dim();

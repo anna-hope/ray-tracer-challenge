@@ -16,7 +16,7 @@ fn main() {
     };
     let floor = Sphere::new()
         .with_transformation(floor_transformation)
-        .with_material(floor_material.clone());
+        .with_material(floor_material);
 
     let left_wall_transformation = Matrix::identity()
         .scale(10., 0.01, 10.)
@@ -25,7 +25,7 @@ fn main() {
         .translate(0., 0., 5.);
     let left_wall = Sphere::new()
         .with_transformation(left_wall_transformation)
-        .with_material(floor_material.clone());
+        .with_material(floor_material);
 
     let right_wall_transformation = Matrix::identity()
         .scale(10., 0.01, 10.)
@@ -34,7 +34,7 @@ fn main() {
         .translate(0., 0., 5.);
     let right_wall = Sphere::new()
         .with_transformation(right_wall_transformation)
-        .with_material(floor_material.clone());
+        .with_material(floor_material);
 
     let middle_sphere_transformation = Matrix::translation(-0.5, 1., 0.5);
     let middle_sphere_material = Material {

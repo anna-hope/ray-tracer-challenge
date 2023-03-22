@@ -32,6 +32,11 @@ pub trait SceneObject: intersection::Intersect {
     fn object_type(&self) -> SceneObjectType;
 
     fn material(&self) -> material::Material;
+
+    /// Get an intersection with an arbitrary t for this object.
+    /// This is needed primarily for testing, because we can't construct
+    /// an intersection with a boxed trait object due to type incompatibility.
+    fn arbitrary_intersection<'a>(&'a self, t: f64) -> intersection::Intersection;
 }
 
 impl PartialEq for dyn SceneObject {

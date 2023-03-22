@@ -4,6 +4,8 @@
 ### General
 
 - f64 used for all floats
+- I use `transformation` in place of `transform` (from the book) for transformation matrices
+  because I think that's clearer
 
 ### Points and vectors
 

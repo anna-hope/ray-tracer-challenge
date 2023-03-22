@@ -4,7 +4,6 @@ use crate::{canvas::Canvas, world::World, Matrix, Ray, Result, Tuple};
 pub struct Camera {
     hsize: usize,
     vsize: usize,
-    field_of_view: f64,
     transformation: Matrix,
     half_width: f64,
     half_height: f64,
@@ -27,7 +26,6 @@ impl Camera {
         Self {
             hsize,
             vsize,
-            field_of_view,
             transformation: Matrix::identity(),
             half_width,
             half_height,
@@ -91,7 +89,6 @@ mod tests {
         let camera = Camera::new(hsize, vsize, field_of_view);
         assert_eq!(camera.hsize, hsize);
         assert_eq!(camera.vsize, vsize);
-        assert_eq!(camera.field_of_view, field_of_view);
         assert_eq!(camera.transformation, Matrix::identity());
     }
 

@@ -9,8 +9,10 @@ This project targets Rust 1.68.0 and above. [rustup](https://rustup.rs/) is reco
 
 To run:
 
+Release mode is highly recommended, as the renderer is *much* slower in debug mode.
+
 ```
-cargo run
+cargo run --release
 ```
 
 ## Run tests

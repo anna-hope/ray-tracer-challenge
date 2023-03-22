@@ -27,3 +27,7 @@ but it didn't work due to lifetime issues. I'm not sure how to fix this.
 instantiate a new `Sphere`, and then set the transformation on that `Sphere`. I thought this was
 kind of awkward, so I added a new `with_transformation` associated function to the `Sphere` struct, which instantiates a new Sphere with the given transformation. Saves a line of code,
 and no longer requires a Sphere to be mutable.
+
+## Ideas for future improvements/enhancements
+
+- Support multiple light sources (p. 96)

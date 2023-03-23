@@ -127,10 +127,15 @@ mod tests {
         let light = PointLight::new(Tuple::point(-10., 10., -10.), Color::white());
         assert_eq!(world.light, Some(light));
 
-        let mut material = Material::default();
-        material.color = Color::new(0.8, 1.0, 0.6);
-        material.diffuse = 0.7;
-        material.specular = 0.2;
+        let color = Color::new(0.8, 1.0, 0.6);
+        let diffuse = 0.7;
+        let specular = 0.2;
+        let material = Material {
+            color,
+            diffuse,
+            specular,
+            ..Default::default()
+        };
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
         let sphere1 = Sphere::new().with_material(material);

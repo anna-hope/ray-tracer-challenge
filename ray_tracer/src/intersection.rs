@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{Matrix, SceneObject, Tuple, EPSILON};
+use crate::{Matrix, Shape, Tuple, EPSILON};
 
 /// Ray.origin is a point, Ray.direction is a vector.
 #[derive(Debug, Clone, Copy)]
@@ -32,7 +32,7 @@ pub trait Intersect {
 
 pub struct Computations<'a> {
     pub t: f64,
-    pub object: &'a dyn SceneObject,
+    pub object: &'a dyn Shape,
     pub point: Tuple,
     pub eye_vector: Tuple,
     pub normal_vector: Tuple,
@@ -45,7 +45,7 @@ impl<'a> Debug for Computations<'a> {
         f.debug_struct("Computations")
             .field("t", &self.t)
             .field("object id", &self.object.id())
-            .field("object type", &self.object.object_type())
+            .field("object type", &self.object.shape_type())
             .field("point", &self.point)
             .field("eye_vector", &self.eye_vector)
             .field("normal_vector", &self.normal_vector)
@@ -57,11 +57,11 @@ impl<'a> Debug for Computations<'a> {
 #[derive(Clone)]
 pub struct Intersection<'a> {
     pub t: f64,
-    pub object: &'a dyn SceneObject,
+    pub object: &'a dyn Shape,
 }
 
 impl<'a> Intersection<'a> {
-    pub fn new(t: f64, object: &'a dyn SceneObject) -> Self {
+    pub fn new(t: f64, object: &'a dyn Shape) -> Self {
         Self { t, object }
     }
 
@@ -102,7 +102,7 @@ impl<'a> PartialEq for Intersection<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.t == other.t
             && self.object.id() == other.object.id()
-            && self.object.object_type() == other.object.object_type()
+            && self.object.shape_type() == other.object.shape_type()
     }
 }
 
@@ -110,7 +110,7 @@ impl<'a> Debug for Intersection<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Intersection")
             .field("t", &self.t)
-            .field("object type", &self.object.object_type())
+            .field("object type", &self.object.shape_type())
             .field("object id", &self.object.id())
             .finish()
     }
@@ -162,7 +162,7 @@ mod tests {
         assert_eq!(intersection.t, 3.5);
         // assert_eq!(&sphere, intersection.object);
         assert_eq!(intersection.object.id(), sphere.id());
-        assert_eq!(intersection.object.object_type(), sphere.object_type());
+        assert_eq!(intersection.object.shape_type(), sphere.shape_type());
     }
 
     #[test]
@@ -243,10 +243,7 @@ mod tests {
         let comps = intersection.prepare_computations(&ray);
         assert_eq!(comps.t, intersection.t);
         assert_eq!(comps.object.id(), intersection.object.id());
-        assert_eq!(
-            comps.object.object_type(),
-            intersection.object.object_type()
-        );
+        assert_eq!(comps.object.shape_type(), intersection.object.shape_type());
         assert_eq!(comps.point, Tuple::point(0., 0., -1.));
         assert_eq!(comps.eye_vector, Tuple::vector(0., 0., -1.));
         assert_eq!(comps.normal_vector, Tuple::vector(0., 0., -1.));

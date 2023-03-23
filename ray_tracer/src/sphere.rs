@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::{
     intersection::{Intersect, Intersection, Ray},
     material::Material,
-    Matrix, SceneObject, SceneObjectType, Tuple,
+    Matrix, Shape, ShapeType, Tuple,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -80,9 +80,9 @@ impl Intersect for Sphere {
     }
 }
 
-impl SceneObject for Sphere {
-    fn object_type(&self) -> SceneObjectType {
-        SceneObjectType::Sphere
+impl Shape for Sphere {
+    fn shape_type(&self) -> ShapeType {
+        ShapeType::Sphere
     }
     fn id(&self) -> usize {
         self.id

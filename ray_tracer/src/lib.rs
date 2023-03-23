@@ -24,11 +24,11 @@ type Result<T> = std::result::Result<T, RayTracerError>;
 const EPSILON: f64 = 1e-5;
 
 #[derive(Debug, PartialEq)]
-pub enum SceneObjectType {
+pub enum ShapeType {
     Sphere,
 }
 
-pub trait SceneObject: intersection::Intersect {
+pub trait Shape: intersection::Intersect {
     /// Computes the normal vector at the world point.
     fn normal_at(&self, world_point: Tuple) -> Tuple;
 
@@ -36,7 +36,7 @@ pub trait SceneObject: intersection::Intersect {
     fn id(&self) -> usize;
 
     /// Gets object type.
-    fn object_type(&self) -> SceneObjectType;
+    fn shape_type(&self) -> ShapeType;
 
     fn material(&self) -> material::Material;
 
@@ -50,16 +50,16 @@ pub trait SceneObject: intersection::Intersect {
     fn set_material(&mut self, material: material::Material);
 }
 
-impl PartialEq for dyn SceneObject {
+impl PartialEq for dyn Shape {
     fn eq(&self, other: &Self) -> bool {
-        self.object_type() == other.object_type() && self.id() == other.id()
+        self.shape_type() == other.shape_type() && self.id() == other.id()
     }
 }
 
-impl Debug for dyn SceneObject {
+impl Debug for dyn Shape {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SceneObject")
-            .field("type", &self.object_type())
+            .field("type", &self.shape_type())
             .field("id", &self.id())
             .finish()
     }

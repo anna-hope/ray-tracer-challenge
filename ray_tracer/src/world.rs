@@ -3,12 +3,12 @@ use crate::{
     light::PointLight,
     material::Material,
     sphere::Sphere,
-    Color, Matrix, Ray, SceneObject, Tuple,
+    Color, Matrix, Ray, Shape, Tuple,
 };
 
 #[derive(Debug)]
 pub struct World {
-    pub objects: Vec<Box<dyn SceneObject>>,
+    pub objects: Vec<Box<dyn Shape>>,
     pub light: Option<PointLight>,
 }
 
@@ -147,12 +147,12 @@ mod tests {
         // and that our Sphere values would get moved as soon as we pass them to the world
         // also, we need to explicitly assign those objects to the sphere
         // because if we just rely on the default ones, they'd have different id's
-        let boxed_sphere1: Box<dyn SceneObject> = Box::new(sphere1.clone());
-        let boxed_sphere2: Box<dyn SceneObject> = Box::new(sphere2.clone());
+        let boxed_sphere1: Box<dyn Shape> = Box::new(sphere1.clone());
+        let boxed_sphere2: Box<dyn Shape> = Box::new(sphere2.clone());
         world.objects = vec![boxed_sphere1, boxed_sphere2];
 
-        let boxed_sphere1: Box<dyn SceneObject> = Box::new(sphere1.clone());
-        let boxed_sphere2: Box<dyn SceneObject> = Box::new(sphere2.clone());
+        let boxed_sphere1: Box<dyn Shape> = Box::new(sphere1.clone());
+        let boxed_sphere2: Box<dyn Shape> = Box::new(sphere2.clone());
         assert!(world.objects.contains(&boxed_sphere1));
         assert!(world.objects.contains(&boxed_sphere2));
     }

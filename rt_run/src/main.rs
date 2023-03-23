@@ -1,8 +1,8 @@
 use std::{f64::consts::PI, fs::File, io::Write};
 
 use ray_tracer::{
-    camera, color::Color, light::PointLight, material::Material, sphere::Sphere, transformation,
-    world::World, Matrix, Tuple,
+    camera, color::Color, light::PointLight, material::Material, shape::sphere::Sphere,
+    transformation, world::World, Matrix, Tuple,
 };
 
 fn main() {

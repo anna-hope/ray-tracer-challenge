@@ -2,7 +2,7 @@ use crate::{
     intersection::{hit, Computations, Intersect, Intersection},
     light::PointLight,
     material::Material,
-    sphere::Sphere,
+    shape::sphere::Sphere,
     Color, Matrix, Ray, Shape, Tuple,
 };
 

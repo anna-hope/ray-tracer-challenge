@@ -6,7 +6,7 @@ pub mod intersection;
 pub mod light;
 pub mod material;
 mod matrix;
-pub mod sphere;
+pub mod shape;
 pub mod transformation;
 mod tuple;
 pub mod world;
@@ -38,7 +38,9 @@ pub trait Shape: intersection::Intersect {
     /// Gets object type.
     fn shape_type(&self) -> ShapeType;
 
-    fn material(&self) -> material::Material;
+    fn material(&self) -> material::Material {
+        material::Material::default()
+    }
 
     /// Gets an intersection with an arbitrary t for this object.
     /// This is needed primarily for testing, because we can't construct

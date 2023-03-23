@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{shape::Shape, Matrix, Tuple, EPSILON};
+use crate::{shape::Shape, Matrix, Result, Tuple, EPSILON};
 
 /// Ray.origin is a point, Ray.direction is a vector.
 #[derive(Debug, Clone, Copy)]
@@ -68,16 +68,14 @@ impl<'a> Intersection<'a> {
     /// Precomputes the point (in world space) where the intersection occurred
     /// the eye vector (pointing back toward the eye/camera)
     /// and the normal vector.
-    pub fn prepare_computations(&self, ray: &Ray) -> Computations {
+    pub fn prepare_computations(&self, ray: &Ray) -> Result<Computations> {
         let point = ray.position(self.t);
         let eye_vector = -ray.direction;
-        let normal_vector = self.object.normal_at(point);
+        let normal_vector = self.object.normal_at(point)?;
 
         // if the dot product of normal_vector and eye_vector is negative
         // then they're pointing in (roughly) opposite directions
-        let normal_dot_eye = normal_vector
-            .dot(&eye_vector)
-            .expect("Both normal_vector and eye_vector should be vectors");
+        let normal_dot_eye = normal_vector.dot(&eye_vector)?;
         let (inside, normal_vector) = if normal_dot_eye < 0. {
             (true, -normal_vector)
         } else {
@@ -86,7 +84,7 @@ impl<'a> Intersection<'a> {
 
         let over_point = point + normal_vector * EPSILON;
 
-        Computations {
+        Ok(Computations {
             t: self.t,
             object: self.object,
             point,
@@ -94,7 +92,7 @@ impl<'a> Intersection<'a> {
             normal_vector,
             inside,
             over_point,
-        }
+        })
     }
 }
 
@@ -240,7 +238,7 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let shape = Sphere::new();
         let intersection = Intersection::new(4., &shape);
-        let comps = intersection.prepare_computations(&ray);
+        let comps = intersection.prepare_computations(&ray).unwrap();
         assert_eq!(comps.t, intersection.t);
         assert_eq!(comps.object.id(), intersection.object.id());
         assert_eq!(comps.object.shape_type(), intersection.object.shape_type());
@@ -254,7 +252,7 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let shape = Sphere::new();
         let intersection = Intersection::new(4., &shape);
-        let comps = intersection.prepare_computations(&ray);
+        let comps = intersection.prepare_computations(&ray).unwrap();
         assert!(!comps.inside);
     }
 
@@ -263,7 +261,7 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
         let shape = Sphere::new();
         let intersection = Intersection::new(1., &shape);
-        let comps = intersection.prepare_computations(&ray);
+        let comps = intersection.prepare_computations(&ray).unwrap();
         assert_eq!(comps.point, Tuple::point(0., 0., 1.));
         assert_eq!(comps.eye_vector, Tuple::vector(0., 0., -1.));
         assert!(comps.inside);
@@ -275,7 +273,7 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let shape = Sphere::new().with_transformation(Matrix::translation(0., 0., 1.));
         let intersection = Intersection::new(5., &shape);
-        let comps = intersection.prepare_computations(&ray);
+        let comps = intersection.prepare_computations(&ray).unwrap();
         assert!(comps.over_point.z < -EPSILON / 2.);
         assert!(comps.point.z > comps.over_point.z);
     }

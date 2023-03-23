@@ -4,18 +4,19 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::{
     intersection::{Intersect, Intersection, Ray},
     material::Material,
-    Matrix, Tuple,
+    Matrix, Result, Tuple,
 };
 
 #[derive(Debug, PartialEq)]
 pub enum ShapeType {
     Sphere,
+    Plane,
     TestShape,
 }
 
 pub trait Shape: Intersect {
     /// Computes the normal vector at the world point.
-    fn normal_at(&self, world_point: Tuple) -> Tuple;
+    fn normal_at(&self, point: Tuple) -> Result<Tuple>;
 
     /// Gets object id.
     fn id(&self) -> usize;
@@ -138,18 +139,15 @@ pub mod sphere {
             self.id
         }
 
-        fn normal_at(&self, world_point: Tuple) -> Tuple {
-            let transformation_inverse = self
-                .transformation
-                .inverse()
-                .expect("Sphere transformation matrix should be invertible");
-            let object_point = transformation_inverse.clone() * world_point;
+        fn normal_at(&self, point: Tuple) -> Result<Tuple> {
+            let transformation_inverse = self.transformation.inverse()?;
+            let object_point = transformation_inverse.clone() * point;
             let object_normal = object_point - Tuple::point(0., 0., 0.);
             let mut world_normal = transformation_inverse.transpose() * object_normal;
 
             // hack to avoid having to find the submatrix of the transformation
             world_normal.w = 0.;
-            world_normal.norm()
+            Ok(world_normal.norm())
         }
 
         fn material(&self) -> Material {
@@ -269,21 +267,21 @@ pub mod sphere {
         #[test]
         fn normal_on_sphere_x_axis() {
             let sphere = Sphere::new();
-            let normal = sphere.normal_at(Tuple::point(1., 0., 0.));
+            let normal = sphere.normal_at(Tuple::point(1., 0., 0.)).unwrap();
             assert_eq!(normal, Tuple::vector(1., 0., 0.));
         }
 
         #[test]
         fn normal_on_sphere_y_axis() {
             let sphere = Sphere::new();
-            let normal = sphere.normal_at(Tuple::point(0., 1., 0.));
+            let normal = sphere.normal_at(Tuple::point(0., 1., 0.)).unwrap();
             assert_eq!(normal, Tuple::vector(0., 1., 0.));
         }
 
         #[test]
         fn normal_on_sphere_z_axis() {
             let sphere = Sphere::new();
-            let normal = sphere.normal_at(Tuple::point(0., 0., 1.));
+            let normal = sphere.normal_at(Tuple::point(0., 0., 1.)).unwrap();
             assert_eq!(normal, Tuple::vector(0., 0., 1.));
         }
 
@@ -291,7 +289,7 @@ pub mod sphere {
         fn normal_on_sphere_nonaxial() {
             let sphere = Sphere::new();
             let val = 3.0_f64.sqrt() / 3.;
-            let normal = sphere.normal_at(Tuple::point(val, val, val));
+            let normal = sphere.normal_at(Tuple::point(val, val, val)).unwrap();
             assert_eq!(normal, Tuple::vector(val, val, val));
         }
 
@@ -299,14 +297,16 @@ pub mod sphere {
         fn normal_is_normalized_vector() {
             let sphere = Sphere::new();
             let val = 3.0_f64.sqrt() / 3.;
-            let normal = sphere.normal_at(Tuple::point(val, val, val));
+            let normal = sphere.normal_at(Tuple::point(val, val, val)).unwrap();
             assert_eq!(normal, normal.norm());
         }
 
         #[test]
         fn compute_normal_translated_sphere() {
             let sphere = Sphere::new().with_transformation(Matrix::translation(0., 1., 0.));
-            let normal = sphere.normal_at(Tuple::point(0., 1.70711, -0.70711));
+            let normal = sphere
+                .normal_at(Tuple::point(0., 1.70711, -0.70711))
+                .unwrap();
             assert_eq!(normal, Tuple::vector(0., 0.70711, -0.70711));
         }
 
@@ -315,7 +315,7 @@ pub mod sphere {
             let matrix = Matrix::identity().rotate_z(PI / 5.).scale(1., 0.5, 1.);
             let sphere = Sphere::new().with_transformation(matrix);
             let val = 2.0_f64.sqrt() / 2.;
-            let normal = sphere.normal_at(Tuple::point(0., val, -val));
+            let normal = sphere.normal_at(Tuple::point(0., val, -val)).unwrap();
             assert_eq!(normal, Tuple::vector(0., 0.97014, -0.24254));
         }
 
@@ -335,8 +335,64 @@ pub mod sphere {
     }
 }
 
+// pub mod plane {
+//     use super::*;
+
+//     struct Plane {
+//         id: usize,
+//         transformation: Matrix,
+//         material: Material,
+//     }
+
+//     impl Plane {
+//         fn local_normal_at(&self, point: Tuple) -> Tuple {
+//             unimplemented!()
+//         }
+//     }
+
+//     impl Intersect for Plane {
+//         fn intersect(&self, ray: &Ray) -> Vec<Intersection> {
+//             unimplemented!()
+//         }
+//     }
+
+//     impl Shape for Plane {
+//         fn arbitrary_intersection(&self, t: f64) -> Intersection {
+//             Intersection { t, object: self }
+//         }
+
+//         fn normal_at(&self, point: Tuple) -> Result<Tuple> {
+//             let local_point = self
+//                 .transformation
+//                 .inverse()
+//                 .expect("Plane transformation must be invertible")
+//                 * point;
+//             let local_normal = self.local_normal_at(local_point);
+//             unimplemented!()
+//         }
+
+//         fn id(&self) -> usize {
+//             unimplemented!()
+//         }
+
+//         fn material(&self) -> Material {
+//             self.material
+//         }
+
+//         fn shape_type(&self) -> ShapeType {
+//             ShapeType::Plane
+//         }
+
+//         fn set_material(&mut self, material: Material) {
+//             self.material = material;
+//         }
+//     }
+// }
+
 #[cfg(test)]
 mod tests {
+
+    use std::f64::consts::PI;
 
     use super::*;
 
@@ -362,6 +418,10 @@ mod tests {
         pub fn with_material(mut self, material: Material) -> Self {
             self.material = material;
             self
+        }
+
+        fn local_normal_at(point: Tuple) -> Tuple {
+            Tuple::vector(point.x, point.y, point.z)
         }
     }
 
@@ -392,8 +452,12 @@ mod tests {
             self.material = material;
         }
 
-        fn normal_at(&self, _world_point: Tuple) -> Tuple {
-            unimplemented!()
+        fn normal_at(&self, point: Tuple) -> Result<Tuple> {
+            let local_point = self.transformation.inverse()? * point;
+            let local_normal = Self::local_normal_at(local_point);
+            let mut world_normal = self.transformation.inverse()?.transpose() * local_normal;
+            world_normal.w = 0.;
+            Ok(world_normal.norm())
         }
     }
 
@@ -424,5 +488,23 @@ mod tests {
         };
         let shape = TestShape::new().with_material(material);
         assert_eq!(shape.material, material);
+    }
+
+    #[test]
+    fn compute_normal_on_translated_shape() {
+        let shape = TestShape::new().with_transformation(Matrix::translation(0., 1., 0.));
+        let normal = shape
+            .normal_at(Tuple::point(0., 1.70711, -0.70711))
+            .unwrap();
+        assert_eq!(normal, Tuple::vector(0., 0.70711, -0.70711));
+    }
+
+    #[test]
+    fn compute_normal_on_transformed_shape() {
+        let transformation = Matrix::identity().rotate_z(PI / 2.).scale(1., 0.5, 1.);
+        let shape = TestShape::new().with_transformation(transformation);
+        let val = 2.0_f64.sqrt() / 2.;
+        let normal = shape.normal_at(Tuple::point(0., val, -val)).unwrap();
+        assert_eq!(normal, Tuple::vector(0., 0.97014, -0.24254));
     }
 }

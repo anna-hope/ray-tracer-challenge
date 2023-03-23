@@ -4,7 +4,7 @@ use crate::{
     material::Material,
     shape::sphere::Sphere,
     shape::Shape,
-    Color, Matrix, Ray, Tuple,
+    Color, Matrix, Ray, Result, Tuple,
 };
 
 #[derive(Debug)]
@@ -43,13 +43,13 @@ impl World {
 
     /// Intersects the world with the given ray and returns
     /// the color at the resulting intersection.
-    pub fn color_at(&self, ray: &Ray) -> Color {
+    pub fn color_at(&self, ray: &Ray) -> Result<Color> {
         let xs = self.intersect(ray);
         if let Some(hit) = hit(&xs) {
-            let comps = hit.prepare_computations(ray);
-            self.shade_hit(&comps)
+            let comps = hit.prepare_computations(ray)?;
+            Ok(self.shade_hit(&comps))
         } else {
-            Color::default()
+            Ok(Color::default())
         }
     }
 
@@ -176,7 +176,7 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let shape = &world.objects[0];
         let intersection = shape.arbitrary_intersection(4.);
-        let comps = intersection.prepare_computations(&ray);
+        let comps = intersection.prepare_computations(&ray).unwrap();
         let color = world.shade_hit(&comps);
         assert_eq!(color, Color::new(0.38066, 0.47583, 0.2855));
     }
@@ -191,7 +191,7 @@ mod tests {
 
         let shape = &world.objects[1];
         let intersection = shape.arbitrary_intersection(0.5);
-        let comps = intersection.prepare_computations(&ray);
+        let comps = intersection.prepare_computations(&ray).unwrap();
         let color = world.shade_hit(&comps);
 
         let val = 0.90498;
@@ -210,7 +210,7 @@ mod tests {
 
         let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
         let intersection = Intersection::new(4., &sphere2);
-        let comps = intersection.prepare_computations(&ray);
+        let comps = intersection.prepare_computations(&ray).unwrap();
         let color = world.shade_hit(&comps);
         assert_eq!(color, Color::new(0.1, 0.1, 0.1));
     }
@@ -220,7 +220,7 @@ mod tests {
         // when the ray fails to intersect anything, the returned color should be black
         let world = World::default();
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 1., 0.));
-        let color = world.color_at(&ray);
+        let color = world.color_at(&ray).unwrap();
         assert_eq!(color, Color::default());
     }
 
@@ -229,7 +229,7 @@ mod tests {
         // our ray intersects the outermost sphere in the default world
         let world = World::default();
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let color = world.color_at(&ray);
+        let color = world.color_at(&ray).unwrap();
         assert_eq!(color, Color::new(0.38066, 0.47583, 0.2855));
     }
 
@@ -251,7 +251,7 @@ mod tests {
         inner.set_material(inner_material);
 
         let ray = Ray::new(Tuple::point(0., 0., 0.75), Tuple::vector(0., 0., -1.));
-        let color = world.color_at(&ray);
+        let color = world.color_at(&ray).unwrap();
         assert_eq!(color, inner_material.color);
     }
 

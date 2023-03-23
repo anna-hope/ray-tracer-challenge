@@ -32,6 +32,7 @@ impl World {
                 comps.point,
                 comps.eye_vector,
                 comps.normal_vector,
+                false,
             )
         } else {
             Color::default()

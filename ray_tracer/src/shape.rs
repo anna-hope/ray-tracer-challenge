@@ -1,12 +1,14 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use crate::{
+    intersection::{Intersect, Intersection, Ray},
+    material::Material,
+    Matrix, Shape, ShapeType, Tuple,
+};
+
 pub mod sphere {
 
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    use crate::{
-        intersection::{Intersect, Intersection, Ray},
-        material::Material,
-        Matrix, Shape, ShapeType, Tuple,
-    };
+    use super::*;
 
     #[derive(Debug, PartialEq, Clone)]
     pub struct Sphere {

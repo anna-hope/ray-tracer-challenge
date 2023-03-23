@@ -72,7 +72,7 @@ impl Material {
             } else {
                 // compute the specular contribution
                 let factor = reflect_dot_eye.powf(self.shininess);
-                specular = light.intensity * self.specular * factor
+                specular = light.intensity * self.specular * factor;
             }
         }
 

@@ -50,6 +50,26 @@ impl World {
             Color::default()
         }
     }
+
+    fn is_shadowed(&self, point: Tuple) -> bool {
+        if let Some(light) = self.light {
+            let distance_vector = light.position - point;
+            let distance = distance_vector.magnitude();
+            let direction = distance_vector.norm();
+
+            let ray = Ray::new(point, direction);
+            let intersections = self.intersect(&ray);
+
+            if let Some(hit) = hit(&intersections) {
+                hit.t < distance
+            } else {
+                false
+            }
+        } else {
+            // if there is no light, everything is shadowed
+            true
+        }
+    }
 }
 
 impl Default for World {
@@ -208,5 +228,34 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., 0.75), Tuple::vector(0., 0., -1.));
         let color = world.color_at(&ray);
         assert_eq!(color, inner_material.color);
+    }
+
+    #[test]
+    fn no_shadow_when_nothing_is_collinear_with_point_and_light() {
+        let world = World::default();
+        let point = Tuple::point(0., 10., 0.);
+        let is_shadowed = world.is_shadowed(point);
+        assert!(!is_shadowed);
+    }
+
+    #[test]
+    fn shadow_when_object_is_between_point_and_light() {
+        let world = World::default();
+        let point = Tuple::point(10., -10., 10.);
+        assert!(world.is_shadowed(point));
+    }
+
+    #[test]
+    fn no_shadow_when_object_is_behind_light() {
+        let world = World::default();
+        let point = Tuple::point(-20., 20., -20.);
+        assert!(!world.is_shadowed(point));
+    }
+
+    #[test]
+    fn no_shadow_when_object_is_behind_point() {
+        let world = World::default();
+        let point = Tuple::point(-2., -2., -2.);
+        assert!(!world.is_shadowed(point));
     }
 }

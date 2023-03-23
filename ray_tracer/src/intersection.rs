@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{Matrix, SceneObject, Tuple};
+use crate::{Matrix, SceneObject, Tuple, EPSILON};
 
 /// Ray.origin is a point, Ray.direction is a vector.
 #[derive(Debug, Clone, Copy)]
@@ -37,6 +37,7 @@ pub struct Computations<'a> {
     pub eye_vector: Tuple,
     pub normal_vector: Tuple,
     pub inside: bool,
+    pub over_point: Tuple,
 }
 
 impl<'a> Debug for Computations<'a> {
@@ -83,6 +84,8 @@ impl<'a> Intersection<'a> {
             (false, normal_vector)
         };
 
+        let over_point = point + normal_vector * EPSILON;
+
         Computations {
             t: self.t,
             object: self.object,
@@ -90,6 +93,7 @@ impl<'a> Intersection<'a> {
             eye_vector,
             normal_vector,
             inside,
+            over_point,
         }
     }
 }
@@ -131,7 +135,7 @@ pub fn hit<'a>(xs: &'a [Intersection]) -> Option<&'a Intersection<'a>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sphere::Sphere;
+    use crate::{sphere::Sphere, EPSILON};
 
     #[test]
     fn create_and_query_ray() {
@@ -267,5 +271,15 @@ mod tests {
         assert_eq!(comps.eye_vector, Tuple::vector(0., 0., -1.));
         assert!(comps.inside);
         assert_eq!(comps.normal_vector, Tuple::vector(0., 0., -1.));
+    }
+
+    #[test]
+    fn hit_should_offset_point() {
+        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let shape = Sphere::new().with_transformation(Matrix::translation(0., 0., 1.));
+        let intersection = Intersection::new(5., &shape);
+        let comps = intersection.prepare_computations(&ray);
+        assert!(comps.over_point.z < -EPSILON / 2.);
+        assert!(comps.point.z > comps.over_point.z);
     }
 }

@@ -27,12 +27,13 @@ impl World {
         // possible future improvement: support multiple light sources
         // (p. 96 of the book)
         if let Some(light) = self.light {
+            let in_shadow = self.is_shadowed(comps.over_point);
             comps.object.material().lighting(
                 light,
                 comps.point,
                 comps.eye_vector,
                 comps.normal_vector,
-                false,
+                in_shadow,
             )
         } else {
             Color::default()
@@ -181,9 +182,10 @@ mod tests {
 
     #[test]
     fn shading_intersection_from_inside() {
-        let mut world = World::default();
-        world.light = Some(PointLight::new(Tuple::point(0., 0.25, 0.), Color::white()));
-
+        let world = World {
+            light: Some(PointLight::new(Tuple::point(0., 0.25, 0.), Color::white())),
+            ..Default::default()
+        };
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
 
         let shape = &world.objects[1];
@@ -193,6 +195,23 @@ mod tests {
 
         let val = 0.90498;
         assert_eq!(color, Color::new(val, val, val));
+    }
+
+    #[test]
+    fn shade_hit_is_given_intersection_in_shadow() {
+        let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
+        let sphere1 = Sphere::new();
+        let sphere2 = Sphere::new().with_transformation(Matrix::translation(0., 0., 10.));
+        let world = World {
+            light: Some(light),
+            objects: vec![Box::new(sphere1), Box::new(sphere2.clone())],
+        };
+
+        let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
+        let intersection = Intersection::new(4., &sphere2);
+        let comps = intersection.prepare_computations(&ray);
+        let color = world.shade_hit(&comps);
+        assert_eq!(color, Color::new(0.1, 0.1, 0.1));
     }
 
     #[test]

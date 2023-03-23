@@ -3,7 +3,8 @@ use crate::{
     light::PointLight,
     material::Material,
     shape::sphere::Sphere,
-    Color, Matrix, Ray, Shape, Tuple,
+    shape::Shape,
+    Color, Matrix, Ray, Tuple,
 };
 
 #[derive(Debug)]

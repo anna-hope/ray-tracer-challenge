@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{Matrix, Shape, Tuple, EPSILON};
+use crate::{shape::Shape, Matrix, Tuple, EPSILON};
 
 /// Ray.origin is a point, Ray.direction is a vector.
 #[derive(Debug, Clone, Copy)]

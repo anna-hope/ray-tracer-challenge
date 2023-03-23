@@ -10,6 +10,7 @@ use crate::{
 #[derive(Debug, PartialEq)]
 pub enum ShapeType {
     Sphere,
+    TestShape,
 }
 
 pub trait Shape: Intersect {
@@ -331,5 +332,97 @@ pub mod sphere {
             let sphere = Sphere::new().with_material(material);
             assert_eq!(sphere.material, material);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[derive(Debug)]
+    struct TestShape {
+        transformation: Matrix,
+        material: Material,
+    }
+
+    impl TestShape {
+        pub fn new() -> Self {
+            Self {
+                transformation: Matrix::identity(),
+                material: Material::default(),
+            }
+        }
+
+        pub fn with_transformation(mut self, transformation: Matrix) -> Self {
+            self.transformation = transformation;
+            self
+        }
+
+        pub fn with_material(mut self, material: Material) -> Self {
+            self.material = material;
+            self
+        }
+    }
+
+    impl Intersect for TestShape {
+        fn intersect(&self, _ray: &Ray) -> Vec<Intersection> {
+            unimplemented!()
+        }
+    }
+
+    impl Shape for TestShape {
+        fn id(&self) -> usize {
+            0
+        }
+
+        fn shape_type(&self) -> ShapeType {
+            ShapeType::TestShape
+        }
+
+        fn arbitrary_intersection(&self, _t: f64) -> Intersection {
+            unimplemented!()
+        }
+
+        fn material(&self) -> Material {
+            self.material
+        }
+
+        fn set_material(&mut self, material: Material) {
+            self.material = material;
+        }
+
+        fn normal_at(&self, _world_point: Tuple) -> Tuple {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn default_transformation() {
+        let shape = TestShape::new();
+        assert_eq!(shape.transformation, Matrix::identity());
+    }
+
+    #[test]
+    fn custom_transformation() {
+        let transformation = Matrix::translation(2., 3., 4.);
+        let shape = TestShape::new().with_transformation(transformation.clone());
+        assert_eq!(shape.transformation, transformation);
+    }
+
+    #[test]
+    fn default_material() {
+        let shape = TestShape::new();
+        assert_eq!(shape.material, Material::default());
+    }
+
+    #[test]
+    fn custom_material() {
+        let material = Material {
+            ambient: 1.,
+            ..Default::default()
+        };
+        let shape = TestShape::new().with_material(material);
+        assert_eq!(shape.material, material);
     }
 }

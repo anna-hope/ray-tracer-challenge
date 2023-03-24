@@ -24,6 +24,11 @@ impl Color {
             blue: 1.,
         }
     }
+
+    /// Alias for Color::default().
+    pub fn black() -> Self {
+        Self::default()
+    }
 }
 
 impl PartialEq for Color {

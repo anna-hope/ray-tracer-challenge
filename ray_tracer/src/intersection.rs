@@ -27,7 +27,8 @@ impl Ray {
 }
 
 pub trait Intersect {
-    fn intersect(&self, ray: &Ray) -> Vec<Intersection>;
+    /// Computes the intersections of this ray with the given object.
+    fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>>;
 }
 
 pub struct Computations<'a> {

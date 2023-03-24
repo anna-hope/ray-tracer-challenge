@@ -16,7 +16,22 @@ pub enum ShapeType {
 
 pub trait Shape: Intersect {
     /// Computes the normal vector at the world point.
-    fn normal_at(&self, point: Tuple) -> Result<Tuple>;
+    fn normal_at(&self, point: Tuple) -> Result<Tuple> {
+        let transformation_inverse = self.transformation().inverse()?;
+        let local_point = transformation_inverse.clone() * point;
+        let local_normal = self.local_normal_at(local_point);
+        let mut world_normal = transformation_inverse.transpose() * local_normal;
+
+        // hack to avoid having to find the submatrix of the transformation
+        world_normal.w = 0.;
+        Ok(world_normal.norm())
+    }
+
+    /// Computes the local normal for a given point.
+    fn local_normal_at(&self, local_point: Tuple) -> Tuple;
+
+    /// Returns the transformation matrix for this Shape.
+    fn transformation(&self) -> Matrix;
 
     /// Gets object id.
     fn id(&self) -> usize;
@@ -100,12 +115,8 @@ pub mod sphere {
         /// Returns a Vec of two elements if there is an intersection
         /// (even if it's only in one point, in which case the values would be the same)
         /// or an empty Vec if there is no intersection.
-        fn intersect(&self, ray: &Ray) -> Vec<Intersection> {
-            let ray = ray.transform(
-                self.transformation
-                    .inverse()
-                    .expect("Sphere transformation should be invertible"),
-            );
+        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            let ray = ray.transform(self.transformation.inverse()?);
 
             // the vector from the sphere's center, to the ray origin
             // (the sphere is centered at the world origin)
@@ -119,7 +130,7 @@ pub mod sphere {
 
             let discriminant = b.powi(2) - 4. * a * c;
             if discriminant < 0. {
-                return vec![];
+                return Ok(vec![]);
             }
 
             let t1 = (-b - discriminant.sqrt()) / (2. * a);
@@ -127,7 +138,7 @@ pub mod sphere {
 
             let i1 = Intersection::new(t1, self);
             let i2 = Intersection::new(t2, self);
-            vec![i1, i2]
+            Ok(vec![i1, i2])
         }
     }
 
@@ -139,15 +150,12 @@ pub mod sphere {
             self.id
         }
 
-        fn normal_at(&self, point: Tuple) -> Result<Tuple> {
-            let transformation_inverse = self.transformation.inverse()?;
-            let object_point = transformation_inverse.clone() * point;
-            let object_normal = object_point - Tuple::point(0., 0., 0.);
-            let mut world_normal = transformation_inverse.transpose() * object_normal;
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
 
-            // hack to avoid having to find the submatrix of the transformation
-            world_normal.w = 0.;
-            Ok(world_normal.norm())
+        fn local_normal_at(&self, local_point: Tuple) -> Tuple {
+            local_point - Tuple::point(0., 0., 0.)
         }
 
         fn material(&self) -> Material {
@@ -179,7 +187,7 @@ pub mod sphere {
         fn ray_intersects_sphere_at_2_points() {
             let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
             let sphere = Sphere::new();
-            let xs = sphere.intersect(&ray);
+            let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].t, 4.0);
             assert_eq!(xs[1].t, 6.0);
@@ -189,7 +197,7 @@ pub mod sphere {
         fn ray_intersects_sphere_at_tangent() {
             let ray = Ray::new(Tuple::point(0., 1., -5.), Tuple::vector(0., 0., 1.));
             let sphere = Sphere::new();
-            let xs = sphere.intersect(&ray);
+            let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].t, 5.);
             assert_eq!(xs[1].t, 5.);
@@ -199,7 +207,7 @@ pub mod sphere {
         fn ray_misses_sphere() {
             let ray = Ray::new(Tuple::point(0., 2., -5.), Tuple::vector(0., 0., 1.));
             let sphere = Sphere::new();
-            let xs = sphere.intersect(&ray);
+            let xs = sphere.intersect(&ray).unwrap();
             assert!(xs.is_empty());
         }
 
@@ -207,7 +215,7 @@ pub mod sphere {
         fn ray_originates_inside_sphere() {
             let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
             let sphere = Sphere::new();
-            let xs = sphere.intersect(&ray);
+            let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].t, -1.);
             assert_eq!(xs[1].t, 1.);
@@ -217,7 +225,7 @@ pub mod sphere {
         fn sphere_is_behind_ray() {
             let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
             let sphere = Sphere::new();
-            let xs = sphere.intersect(&ray);
+            let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].t, -6.);
             assert_eq!(xs[1].t, -4.);
@@ -227,7 +235,7 @@ pub mod sphere {
         fn intersect_sets_object_on_intersection() {
             let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
             let sphere = Sphere::new();
-            let xs = sphere.intersect(&ray);
+            let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].object.id(), sphere.id());
             assert_eq!(xs[1].object.id(), sphere.id());
@@ -250,7 +258,7 @@ pub mod sphere {
         fn intersect_scaled_sphere_with_ray() {
             let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
             let sphere = Sphere::new().with_transformation(Matrix::scaling(2., 2., 2.));
-            let xs = sphere.intersect(&ray);
+            let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].t, 3.);
             assert_eq!(xs[1].t, 7.);
@@ -260,7 +268,7 @@ pub mod sphere {
         fn intersect_translated_sphere_with_ray() {
             let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
             let sphere = Sphere::new().with_transformation(Matrix::translation(5., 0., 0.));
-            let xs = sphere.intersect(&ray);
+            let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 0);
         }
 
@@ -335,59 +343,109 @@ pub mod sphere {
     }
 }
 
-// pub mod plane {
-//     use super::*;
+pub mod plane {
+    use crate::EPSILON;
 
-//     struct Plane {
-//         id: usize,
-//         transformation: Matrix,
-//         material: Material,
-//     }
+    use super::*;
 
-//     impl Plane {
-//         fn local_normal_at(&self, point: Tuple) -> Tuple {
-//             unimplemented!()
-//         }
-//     }
+    pub struct Plane {
+        id: usize,
+        transformation: Matrix,
+        material: Material,
+    }
 
-//     impl Intersect for Plane {
-//         fn intersect(&self, ray: &Ray) -> Vec<Intersection> {
-//             unimplemented!()
-//         }
-//     }
+    impl Plane {
+        pub fn new() -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(1);
+            let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+            let transformation = Matrix::identity();
+            let material = Material::default();
+            Self {
+                id,
+                transformation,
+                material,
+            }
+        }
 
-//     impl Shape for Plane {
-//         fn arbitrary_intersection(&self, t: f64) -> Intersection {
-//             Intersection { t, object: self }
-//         }
+        fn local_intersect(&self, ray: &Ray) -> Vec<Intersection> {
+            if ray.direction.y.abs() < EPSILON {
+                return vec![];
+            }
 
-//         fn normal_at(&self, point: Tuple) -> Result<Tuple> {
-//             let local_point = self
-//                 .transformation
-//                 .inverse()
-//                 .expect("Plane transformation must be invertible")
-//                 * point;
-//             let local_normal = self.local_normal_at(local_point);
-//             unimplemented!()
-//         }
+            unimplemented!()
+        }
+    }
 
-//         fn id(&self) -> usize {
-//             unimplemented!()
-//         }
+    impl Intersect for Plane {
+        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            let local_ray = ray.transform(self.transformation.inverse()?);
+            unimplemented!()
+        }
+    }
 
-//         fn material(&self) -> Material {
-//             self.material
-//         }
+    impl Shape for Plane {
+        fn arbitrary_intersection(&self, t: f64) -> Intersection {
+            Intersection { t, object: self }
+        }
 
-//         fn shape_type(&self) -> ShapeType {
-//             ShapeType::Plane
-//         }
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
 
-//         fn set_material(&mut self, material: Material) {
-//             self.material = material;
-//         }
-//     }
-// }
+        fn local_normal_at(&self, _point: Tuple) -> Tuple {
+            // Every single point on the plane has the same normal
+            Tuple::vector(0., 1., 0.)
+        }
+
+        fn id(&self) -> usize {
+            self.id
+        }
+
+        fn material(&self) -> Material {
+            self.material
+        }
+
+        fn shape_type(&self) -> ShapeType {
+            ShapeType::Plane
+        }
+
+        fn set_material(&mut self, material: Material) {
+            self.material = material;
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn normal_of_plane_is_constant_everywhere() {
+            let plane = Plane::new();
+            let normal_1 = plane.local_normal_at(Tuple::point(0., 0., 0.));
+            let normal_2 = plane.local_normal_at(Tuple::point(10., 0., -10.));
+            let normal_3 = plane.local_normal_at(Tuple::point(-5., 0., 150.));
+            assert_eq!(normal_1, Tuple::vector(0., 1., 0.));
+            assert_eq!(normal_2, Tuple::vector(0., 1., 0.));
+            assert_eq!(normal_3, Tuple::vector(0., 1., 0.));
+        }
+
+        #[test]
+        fn intersect_ray_parallel_to_plane() {
+            let plane = Plane::new();
+            let ray = Ray::new(Tuple::point(0., 10., 0.), Tuple::vector(0., 0., 1.));
+            let xs = plane.local_intersect(&ray);
+            assert!(xs.is_empty());
+        }
+
+        #[test]
+        fn intersect_with_coplanar_ray() {
+            let plane = Plane::new();
+            let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
+            let xs = plane.local_intersect(&ray);
+            assert!(xs.is_empty());
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -419,14 +477,10 @@ mod tests {
             self.material = material;
             self
         }
-
-        fn local_normal_at(point: Tuple) -> Tuple {
-            Tuple::vector(point.x, point.y, point.z)
-        }
     }
 
     impl Intersect for TestShape {
-        fn intersect(&self, _ray: &Ray) -> Vec<Intersection> {
+        fn intersect(&self, _ray: &Ray) -> Result<Vec<Intersection>> {
             unimplemented!()
         }
     }
@@ -434,6 +488,10 @@ mod tests {
     impl Shape for TestShape {
         fn id(&self) -> usize {
             0
+        }
+
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
         }
 
         fn shape_type(&self) -> ShapeType {
@@ -452,12 +510,8 @@ mod tests {
             self.material = material;
         }
 
-        fn normal_at(&self, point: Tuple) -> Result<Tuple> {
-            let local_point = self.transformation.inverse()? * point;
-            let local_normal = Self::local_normal_at(local_point);
-            let mut world_normal = self.transformation.inverse()?.transpose() * local_normal;
-            world_normal.w = 0.;
-            Ok(world_normal.norm())
+        fn local_normal_at(&self, local_point: Tuple) -> Tuple {
+            Tuple::point(local_point.x, local_point.y, local_point.z)
         }
     }
 

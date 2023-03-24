@@ -367,19 +367,20 @@ pub mod plane {
             }
         }
 
-        fn local_intersect(&self, ray: &Ray) -> Vec<Intersection> {
+        pub fn local_intersect(&self, ray: &Ray) -> Vec<Intersection> {
             if ray.direction.y.abs() < EPSILON {
                 return vec![];
             }
 
-            unimplemented!()
+            let t = -ray.origin.y / ray.direction.y;
+            vec![Intersection::new(t, self)]
         }
     }
 
     impl Intersect for Plane {
         fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
             let local_ray = ray.transform(self.transformation.inverse()?);
-            unimplemented!()
+            Ok(self.local_intersect(&local_ray))
         }
     }
 
@@ -443,6 +444,28 @@ pub mod plane {
             let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
             let xs = plane.local_intersect(&ray);
             assert!(xs.is_empty());
+        }
+
+        #[test]
+        fn ray_intersecting_plane_from_above() {
+            let plane = Plane::new();
+            let ray = Ray::new(Tuple::point(0., 1., 0.), Tuple::vector(0., -1., 0.));
+            let xs = plane.local_intersect(&ray);
+            assert_eq!(xs.len(), 1);
+            assert_eq!(xs[0].t, 1.);
+            assert_eq!(xs[0].object.shape_type(), ShapeType::Plane);
+            assert_eq!(xs[0].object.id(), plane.id);
+        }
+
+        #[test]
+        fn ray_intersecting_plane_from_below() {
+            let plane = Plane::new();
+            let ray = Ray::new(Tuple::point(0., -1., 0.), Tuple::vector(0., 1., 0.));
+            let xs = plane.local_intersect(&ray);
+            assert_eq!(xs.len(), 1);
+            assert_eq!(xs[0].t, 1.);
+            assert_eq!(xs[0].object.shape_type(), ShapeType::Plane);
+            assert_eq!(xs[0].object.id(), plane.id);
         }
     }
 }

@@ -1,40 +1,23 @@
 use std::{f64::consts::PI, fs::File, io::Write};
 
 use ray_tracer::{
-    camera, color::Color, light::PointLight, material::Material, shape::sphere::Sphere,
-    transformation, world::World, Matrix, Tuple,
+    camera,
+    color::Color,
+    light::PointLight,
+    material::Material,
+    shape::{plane::Plane, sphere::Sphere},
+    transformation,
+    world::World,
+    Matrix, Tuple,
 };
 
 fn main() {
     println!("Rendering...");
 
-    let floor_transformation = Matrix::scaling(10., 0.01, 10.);
-    let floor_material = Material {
-        color: Color::new(1., 0.9, 0.9),
-        specular: 0.,
-        ..Default::default()
-    };
-    let floor = Sphere::new()
-        .with_transformation(floor_transformation)
-        .with_material(floor_material);
+    let floor = Plane::new();
 
-    let left_wall_transformation = Matrix::identity()
-        .scale(10., 0.01, 10.)
-        .rotate_x(-PI / 2.)
-        .rotate_y(-PI / 4.)
-        .translate(0., 0., 5.);
-    let left_wall = Sphere::new()
-        .with_transformation(left_wall_transformation)
-        .with_material(floor_material);
-
-    let right_wall_transformation = Matrix::identity()
-        .scale(10., 0.01, 10.)
-        .rotate_x(PI / 2.)
-        .rotate_y(PI / 4.)
-        .translate(0., 0., 5.);
-    let right_wall = Sphere::new()
-        .with_transformation(right_wall_transformation)
-        .with_material(floor_material);
+    let wall_transformation = Matrix::identity().rotate_x(PI / 2.).translate(0., 0., 3.);
+    let wall = Plane::new().with_transformation(wall_transformation);
 
     let middle_sphere_transformation = Matrix::translation(-0.5, 1., 0.5);
     let middle_sphere_material = Material {
@@ -80,8 +63,7 @@ fn main() {
         )),
         objects: vec![
             Box::new(floor),
-            Box::new(left_wall),
-            Box::new(right_wall),
+            Box::new(wall),
             Box::new(left_sphere),
             Box::new(middle_sphere),
             Box::new(right_sphere),
@@ -94,7 +76,7 @@ fn main() {
         Tuple::vector(0., 1., 0.),
     )
     .expect("Should compute camera transformation");
-    let camera = camera::Camera::new(1000, 500, PI / 3.).with_transformation(camera_transformation);
+    let camera = camera::Camera::new(500, 250, PI / 3.).with_transformation(camera_transformation);
     let canvas = camera.render(&world).expect("Should render the image");
 
     let ppm = canvas.to_ppm();

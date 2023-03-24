@@ -375,6 +375,16 @@ pub mod plane {
             let t = -ray.origin.y / ray.direction.y;
             vec![Intersection::new(t, self)]
         }
+
+        pub fn with_transformation(mut self, transformation: Matrix) -> Self {
+            self.transformation = transformation;
+            self
+        }
+
+        pub fn with_material(mut self, material: Material) -> Self {
+            self.material = material;
+            self
+        }
     }
 
     impl Intersect for Plane {

@@ -19,16 +19,37 @@ So, to get a point, you do `Tuple::point(...)`, and likewise for a vector, you d
 
 ### Spheres
 
-- I implemented object on `Intersection` as a dynamic trait object, so that I can store any object that implements the `SceneObject` trait as the object of the Intersection.
+- I implemented object on `Intersection` as a dynamic trait object, so that I can store any object that implements the `Shape` trait as the object of the Intersection.
 This is uglier than I would like, and prevents simple equality comparisons
-between a `Sphere` that was downcast to a `SceneObject` and a `Sphere` that was not.
-I tried to implement `PartialEq` for `SceneObject` and the concrete `Sphere` type,
+between a `Sphere` that was downcast to a `Shape` and a `Sphere` that was not.
+I tried to implement `PartialEq` for `Shape` and the concrete `Sphere` type,
 but it didn't work due to lifetime issues. I'm not sure how to fix this.
 
 - For a `Sphere` with a non-default (i.e. non-identity matrix) transformation, the book has you
 instantiate a new `Sphere`, and then set the transformation on that `Sphere`. I thought this was
 kind of awkward, so I added a new `with_transformation` associated function to the `Sphere` struct, which instantiates a new Sphere with the given transformation. Saves a line of code,
 and no longer requires a Sphere to be mutable.
+
+### Planes
+
+#### Refactoring to reuse code between shapes
+
+This is so far my least favorite part of the project (p. 117-122). The book, while not written
+for a specific programming language, is by its own admission structured in an object-oriented way.
+Rust is not an object-oriented language. This limits the amount of code reuse that can be done,
+and what can be done feels hacky. 
+
+For example, to reuse the code in `normal_at`, we have to introduce the `local_normal_at` method
+to the `Shape` trait, which becomes available to all users of structs that implement the trait.
+This is not ideal, because it exposes an implementation detail to the user. The user should not
+have to know that the `local_normal_at` method exists, and should not be able to call it.
+
+With the `intersect` and `local_intersect` methods suggested in the book, it is even trickier,
+because the I implemented `intersect` as part of a dedicated `Intersect` trait. That way,
+we can implement `Intersect` for structs that don't implement `Shape`, like `World`.
+This is a good example of composition over inheritance. 
+However, that makes it impossible to reuse the code in `intersect` as the book suggests, because the `Intersect` trait is independent of the `Shape` trait, and the `local_intersect` method relies on
+the `transformation` method, which is part of the `Shape` trait (or equivalent field in the concrete struct).
 
 ## Ideas for future improvements/enhancements
 

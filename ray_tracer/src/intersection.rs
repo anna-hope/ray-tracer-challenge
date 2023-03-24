@@ -116,9 +116,9 @@ impl<'a> Debug for Intersection<'a> {
 
 /// Finds the intersection that hits the object.
 /// Always picks the lowest non-negative intersection (intersection with the smallest t > 0).
-pub fn hit<'a>(xs: &'a [Intersection]) -> Option<&'a Intersection<'a>> {
+pub fn hit<'a>(intersections: &'a [Intersection]) -> Option<&'a Intersection<'a>> {
     let mut lowest_nonnegative_intersection: Option<&Intersection> = None;
-    for intersection in xs {
+    for intersection in intersections {
         if let Some(i) = lowest_nonnegative_intersection {
             if intersection.t > 0. && intersection.t < i.t {
                 lowest_nonnegative_intersection = Some(intersection);

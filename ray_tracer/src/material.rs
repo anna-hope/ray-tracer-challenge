@@ -1,4 +1,4 @@
-use crate::{color::Color, light::PointLight, Tuple};
+use crate::{color::Color, light::PointLight, pattern::StripePattern, Tuple};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Material {
@@ -7,34 +7,31 @@ pub struct Material {
     pub diffuse: f64,
     pub specular: f64,
     pub shininess: f64,
+    pub pattern: Option<StripePattern>,
 }
 
 impl Material {
-    pub fn new(color: Color, ambient: f64, diffuse: f64, specular: f64, shininess: f64) -> Self {
-        Self {
-            color,
-            ambient,
-            diffuse,
-            specular,
-            shininess,
-        }
-    }
-
     /// Adds together the material's ambient, diffuse, and specular components,
     /// weighted by the angles between the eye_vector and the normal_vector.
     pub fn lighting(
         &self,
         light: PointLight,
-        position: Tuple,
+        point: Tuple,
         eye_vector: Tuple,
         normal_vector: Tuple,
         in_shadow: bool,
     ) -> Color {
+        let color = if let Some(pattern) = self.pattern {
+            pattern.stripe_at(point)
+        } else {
+            self.color
+        };
+
         // combine the surface color with the light's color/intensity
-        let effective_color = self.color * light.intensity;
+        let effective_color = color * light.intensity;
 
         // find the direction to the light surface
-        let light_vector = (light.position - position).norm();
+        let light_vector = (light.position - point).norm();
 
         // compute the ambient contribution
         let ambient = effective_color * self.ambient;
@@ -90,14 +87,22 @@ impl Material {
 impl Default for Material {
     /// Initialize material with the default parameters:
     /// color = white, ambient = 0.1, diffuse = 0.9, specular = 0.9,
-    /// shininess = 200.
+    /// shininess = 200, and black and white stripes.
     fn default() -> Self {
         let color = Color::white();
         let ambient = 0.1;
         let diffuse = 0.9;
         let specular = 0.9;
         let shininess = 200.;
-        Self::new(color, ambient, diffuse, specular, shininess)
+        let pattern = None;
+        Self {
+            color,
+            ambient,
+            diffuse,
+            specular,
+            shininess,
+            pattern,
+        }
     }
 }
 
@@ -184,5 +189,38 @@ mod tests {
         let in_shadow = true;
         let result = material.lighting(light, position, eye_vector, normal_vector, in_shadow);
         assert_eq!(result, Color::new(0.1, 0.1, 0.1));
+    }
+
+    #[test]
+    fn lighting_with_pattern_applied() {
+        let material = Material {
+            ambient: 1.,
+            diffuse: 0.,
+            specular: 0.,
+            pattern: Some(StripePattern::new(Color::white(), Color::black())),
+            ..Default::default()
+        };
+
+        let eye_vector = Tuple::vector(0., 0., -1.);
+        let normal_vector = Tuple::vector(0., 0., -1.);
+        let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
+        let color1 = material.lighting(
+            light,
+            Tuple::point(0.9, 0., 0.),
+            eye_vector,
+            normal_vector,
+            false,
+        );
+
+        let color2 = material.lighting(
+            light,
+            Tuple::point(1.1, 0., 0.),
+            eye_vector,
+            normal_vector,
+            false,
+        );
+
+        assert_eq!(color1, Color::white());
+        assert_eq!(color2, Color::black());
     }
 }

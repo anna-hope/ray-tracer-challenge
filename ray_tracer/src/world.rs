@@ -29,13 +29,14 @@ impl World {
         // (p. 96 of the book)
         if let Some(light) = self.light {
             let in_shadow = self.is_shadowed(comps.over_point)?;
-            Ok(comps.object.material().lighting(
+            let color = comps.object.material().lighting(
                 light,
                 comps.point,
                 comps.eye_vector,
                 comps.normal_vector,
                 in_shadow,
-            ))
+            )?;
+            Ok(color)
         } else {
             Ok(Color::default())
         }

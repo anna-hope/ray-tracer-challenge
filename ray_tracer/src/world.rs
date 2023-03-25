@@ -248,7 +248,7 @@ mod tests {
         let inner = &mut world.objects[1];
         let mut inner_material = inner.material();
         inner_material.ambient = 1.;
-        inner.set_material(inner_material);
+        inner.set_material(inner_material.clone());
 
         let ray = Ray::new(Tuple::point(0., 0., 0.75), Tuple::vector(0., 0., -1.));
         let color = world.color_at(&ray).unwrap();

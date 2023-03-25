@@ -1,6 +1,6 @@
 use crate::{color::Color, light::PointLight, pattern::StripePattern, Tuple};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Material {
     pub color: Color,
     pub ambient: f64,
@@ -21,7 +21,7 @@ impl Material {
         normal_vector: Tuple,
         in_shadow: bool,
     ) -> Color {
-        let color = if let Some(pattern) = self.pattern {
+        let color = if let Some(pattern) = &self.pattern {
             pattern.stripe_at(point)
         } else {
             self.color

@@ -159,7 +159,7 @@ pub mod sphere {
         }
 
         fn material(&self) -> Material {
-            self.material
+            self.material.clone()
         }
 
         fn arbitrary_intersection(&self, t: f64) -> Intersection {
@@ -337,7 +337,7 @@ pub mod sphere {
         fn sphere_may_be_assigned_material() {
             let mut material = Material::default();
             material.ambient = 1.;
-            let sphere = Sphere::new().with_material(material);
+            let sphere = Sphere::new().with_material(material.clone());
             assert_eq!(sphere.material, material);
         }
     }
@@ -413,7 +413,7 @@ pub mod plane {
         }
 
         fn material(&self) -> Material {
-            self.material
+            self.material.clone()
         }
 
         fn shape_type(&self) -> ShapeType {
@@ -536,7 +536,7 @@ mod tests {
         }
 
         fn material(&self) -> Material {
-            self.material
+            self.material.clone()
         }
 
         fn set_material(&mut self, material: Material) {
@@ -573,7 +573,7 @@ mod tests {
             ambient: 1.,
             ..Default::default()
         };
-        let shape = TestShape::new().with_material(material);
+        let shape = TestShape::new().with_material(material.clone());
         assert_eq!(shape.material, material);
     }
 

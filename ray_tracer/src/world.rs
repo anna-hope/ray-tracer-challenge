@@ -30,6 +30,7 @@ impl World {
         if let Some(light) = self.light {
             let in_shadow = self.is_shadowed(comps.over_point)?;
             let color = comps.object.material().lighting(
+                comps.object,
                 light,
                 comps.point,
                 comps.eye_vector,

@@ -1,4 +1,4 @@
-use crate::{color::Color, light::PointLight, pattern::StripePattern, Result, Tuple};
+use crate::{color::Color, light::PointLight, pattern::StripePattern, shape::Shape, Result, Tuple};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Material {
@@ -15,6 +15,7 @@ impl Material {
     /// weighted by the angles between the eye_vector and the normal_vector.
     pub fn lighting(
         &self,
+        object: &dyn Shape,
         light: PointLight,
         point: Tuple,
         eye_vector: Tuple,
@@ -22,7 +23,7 @@ impl Material {
         in_shadow: bool,
     ) -> Result<Color> {
         let color = if let Some(pattern) = &self.pattern {
-            pattern.stripe_at(point)
+            pattern.stripe_at_object(object, point)?
         } else {
             self.color
         };
@@ -102,6 +103,8 @@ impl Default for Material {
 
 #[cfg(test)]
 mod tests {
+    use crate::shape::sphere::Sphere;
+
     use super::*;
 
     #[test]
@@ -121,8 +124,9 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
+        let object = Sphere::new();
         let result = material
-            .lighting(light, position, eye_vector, normal_vector, false)
+            .lighting(&object, light, position, eye_vector, normal_vector, false)
             .unwrap();
         assert_eq!(result, Color::new(1.9, 1.9, 1.9));
     }
@@ -135,8 +139,9 @@ mod tests {
         let eye_vector = Tuple::vector(0., val, -val);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
+        let object = Sphere::new();
         let result = material
-            .lighting(light, position, eye_vector, normal_vector, false)
+            .lighting(&object, light, position, eye_vector, normal_vector, false)
             .unwrap();
         assert_eq!(result, Color::white());
     }
@@ -148,8 +153,9 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 10., -10.), Color::white());
+        let object = Sphere::new();
         let result = material
-            .lighting(light, position, eye_vector, normal_vector, false)
+            .lighting(&object, light, position, eye_vector, normal_vector, false)
             .unwrap();
         let val = 0.7364;
         assert_eq!(result, Color::new(val, val, val));
@@ -163,8 +169,9 @@ mod tests {
         let eye_vector = Tuple::vector(0., -val, -val);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 10., -10.), Color::white());
+        let object = Sphere::new();
         let result = material
-            .lighting(light, position, eye_vector, normal_vector, false)
+            .lighting(&object, light, position, eye_vector, normal_vector, false)
             .unwrap();
         let val2 = 1.6364;
         assert_eq!(result, Color::new(val2, val2, val2));
@@ -177,8 +184,9 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., 10.), Color::white());
+        let object = Sphere::new();
         let result = material
-            .lighting(light, position, eye_vector, normal_vector, false)
+            .lighting(&object, light, position, eye_vector, normal_vector, false)
             .unwrap();
         assert_eq!(result, Color::new(0.1, 0.1, 0.1));
     }
@@ -191,8 +199,16 @@ mod tests {
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
         let in_shadow = true;
+        let object = Sphere::new();
         let result = material
-            .lighting(light, position, eye_vector, normal_vector, in_shadow)
+            .lighting(
+                &object,
+                light,
+                position,
+                eye_vector,
+                normal_vector,
+                in_shadow,
+            )
             .unwrap();
         assert_eq!(result, Color::new(0.1, 0.1, 0.1));
     }
@@ -210,8 +226,10 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
+        let shape = Sphere::new();
         let color1 = material
             .lighting(
+                &shape.clone(),
                 light,
                 Tuple::point(0.9, 0., 0.),
                 eye_vector,
@@ -222,6 +240,7 @@ mod tests {
 
         let color2 = material
             .lighting(
+                &shape,
                 light,
                 Tuple::point(1.1, 0., 0.),
                 eye_vector,

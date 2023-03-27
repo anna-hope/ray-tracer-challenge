@@ -387,6 +387,12 @@ pub mod plane {
         }
     }
 
+    impl Default for Plane {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl Intersect for Plane {
         fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
             let local_ray = ray.transform(self.transformation.inverse()?);

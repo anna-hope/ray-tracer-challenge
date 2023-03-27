@@ -13,8 +13,6 @@ use ray_tracer::{
 };
 
 fn main() {
-    println!("Rendering...");
-
     let floor = Plane::new();
 
     let wall_transformation = Matrix::identity().rotate_x(PI / 2.).translate(0., 0., 3.);
@@ -88,7 +86,7 @@ fn main() {
         Tuple::vector(0., 1., 0.),
     )
     .expect("Should compute camera transformation");
-    let camera = camera::Camera::new(500, 250, PI / 3.).with_transformation(camera_transformation);
+    let camera = camera::Camera::new(1000, 500, PI / 3.).with_transformation(camera_transformation);
     let canvas = camera.render(&world).expect("Should render the image");
 
     let ppm = canvas.to_ppm();

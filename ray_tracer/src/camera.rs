@@ -1,5 +1,7 @@
 use crate::{canvas::Canvas, world::World, Matrix, Ray, Result, Tuple};
 
+use indicatif::{ProgressIterator, ProgressStyle};
+
 #[derive(Debug)]
 pub struct Camera {
     hsize: usize,
@@ -62,9 +64,19 @@ impl Camera {
 
     /// Creates a canvas and casts a ray through each of its pixels,
     /// coloring the pixels with the colors of the corresponding intersections.
+    /// Side-effect: creates and displays a progress bar to stderr.
     pub fn render(&self, world: &World) -> Result<Canvas> {
         let mut image = Canvas::new(self.hsize, self.vsize);
-        for y in 0..self.vsize - 1 {
+
+        let style = ProgressStyle::with_template(
+            "{msg} {elapsed}/{eta} {bar:40.cyan/blue} {pos:>7}/{len:7} {percent}%",
+        )
+        .unwrap_or_else(|_| ProgressStyle::default_bar());
+
+        for y in (0..self.vsize - 1)
+            .progress_with_style(style)
+            .with_message("Rendering...")
+        {
             for x in 0..self.hsize - 1 {
                 let ray = self.ray_for_pixel(x, y)?;
                 let color = world.color_at(&ray)?;

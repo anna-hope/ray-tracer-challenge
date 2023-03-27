@@ -1,6 +1,11 @@
 use crate::{color::Color, shape::Shape, Matrix, Result, Tuple};
 use std::fmt;
 
+pub use checker::CheckerPattern;
+pub use gradient::GradientPattern;
+pub use ring::RingPattern;
+pub use stripe::StripePattern;
+
 #[derive(Debug, PartialEq)]
 pub enum PatternType {
     Stripe,
@@ -68,20 +73,12 @@ pub mod stripe {
 
     #[derive(Debug, Clone, PartialEq)]
     pub struct StripePattern {
-        a: Color,
-        b: Color,
-        transformation: Matrix,
+        pub a: Color,
+        pub b: Color,
+        pub transformation: Matrix,
     }
 
     impl StripePattern {
-        pub fn new(a: Color, b: Color) -> Self {
-            Self {
-                a,
-                b,
-                transformation: Matrix::identity(),
-            }
-        }
-
         pub fn with_transformation(mut self, transformation: Matrix) -> Self {
             self.transformation = transformation;
             self
@@ -126,25 +123,23 @@ pub mod stripe {
         fn create_stripe_pattern() {
             let black = Color::black();
             let white = Color::white();
-            let pattern = StripePattern::new(white, black);
+            let pattern = StripePattern::default();
             assert_eq!(pattern.a, white);
             assert_eq!(pattern.b, black);
         }
 
         #[test]
         fn stripe_pattern_is_constant_in_y() {
-            let black = Color::black();
             let white = Color::white();
-            let pattern = StripePattern::new(white, black);
+            let pattern = StripePattern::default();
             assert_eq!(pattern.pattern_at(Tuple::point(0., 1., 0.)), white);
             assert_eq!(pattern.pattern_at(Tuple::point(0., 2., 0.)), white);
         }
 
         #[test]
         fn stripe_pattern_is_constant_in_z() {
-            let black = Color::black();
             let white = Color::white();
-            let pattern = StripePattern::new(white, black);
+            let pattern = StripePattern::default();
             assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 1.)), white);
             assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 2.)), white);
         }
@@ -153,7 +148,7 @@ pub mod stripe {
         fn stripe_pattern_alternates_in_x() {
             let black = Color::black();
             let white = Color::white();
-            let pattern = StripePattern::new(white, black);
+            let pattern = StripePattern::default();
             assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 0.)), white);
             assert_eq!(pattern.pattern_at(Tuple::point(0.9, 0., 0.)), white);
             assert_eq!(pattern.pattern_at(Tuple::point(1., 0., 0.)), black);
@@ -165,7 +160,7 @@ pub mod stripe {
         #[test]
         fn stripes_with_object_transformation() {
             let object = Sphere::new().with_transformation(Matrix::scaling(2., 2., 2.));
-            let pattern = StripePattern::new(Color::white(), Color::black());
+            let pattern = StripePattern::default();
             let color = pattern
                 .pattern_at_shape(&object, Tuple::point(1.5, 0., 0.))
                 .unwrap();
@@ -208,9 +203,9 @@ pub mod gradient {
 
     #[derive(Debug, Clone)]
     pub struct GradientPattern {
-        a: Color,
-        b: Color,
-        transformation: Matrix,
+        pub a: Color,
+        pub b: Color,
+        pub transformation: Matrix,
     }
 
     impl Pattern for GradientPattern {
@@ -268,9 +263,9 @@ pub mod ring {
 
     #[derive(Debug, Clone)]
     pub struct RingPattern {
-        a: Color,
-        b: Color,
-        transformation: Matrix,
+        pub a: Color,
+        pub b: Color,
+        pub transformation: Matrix,
     }
 
     impl Pattern for RingPattern {
@@ -326,9 +321,9 @@ pub mod checker {
 
     #[derive(Debug, Clone)]
     pub struct CheckerPattern {
-        a: Color,
-        b: Color,
-        transformation: Matrix,
+        pub a: Color,
+        pub b: Color,
+        pub transformation: Matrix,
     }
 
     impl Default for CheckerPattern {

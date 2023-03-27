@@ -219,7 +219,7 @@ mod tests {
             ambient: 1.,
             diffuse: 0.,
             specular: 0.,
-            pattern: Some(Box::new(StripePattern::new(Color::white(), Color::black()))),
+            pattern: Some(Box::new(StripePattern::default())),
             ..Default::default()
         };
 

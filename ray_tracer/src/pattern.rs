@@ -208,6 +208,13 @@ pub mod gradient {
         pub transformation: Matrix,
     }
 
+    impl GradientPattern {
+        pub fn with_transformation(mut self, transformation: Matrix) -> Self {
+            self.transformation = transformation;
+            self
+        }
+    }
+
     impl Pattern for GradientPattern {
         fn pattern_at(&self, point: Tuple) -> Color {
             let distance = self.b - self.a;
@@ -324,6 +331,13 @@ pub mod checker {
         pub a: Color,
         pub b: Color,
         pub transformation: Matrix,
+    }
+
+    impl CheckerPattern {
+        pub fn with_transformation(mut self, transformation: Matrix) -> Self {
+            self.transformation = transformation;
+            self
+        }
     }
 
     impl Default for CheckerPattern {

@@ -14,23 +14,22 @@ use ray_tracer::{
 
 fn main() {
     let floor_pattern = pattern::CheckerPattern {
-        a: Color::new(0.2, 0.0, 0.8),
-        b: Color::new(0.9, 0.0, 0.1),
-        transformation: Matrix::scaling(3., 3., 3.),
+        a: Color::new(0.5, 0.2, 0.8),
+        b: Color::new(0.9, 0.5, 0.1),
+        ..Default::default() // transformation: Matrix::scaling(3., 3., 3.),
     };
     let floor_material = Material {
         pattern: Some(Box::new(floor_pattern.clone())),
         ..Default::default()
     };
-    let floor = Plane::new()
-        .with_material(floor_material)
-        .with_transformation(Matrix::scaling(3., 3., 3.));
+    let floor = Plane::new().with_material(floor_material);
+    // .with_transformation(Matrix::scaling(3., 3., 3.));
 
     let wall_transformation = Matrix::identity().rotate_x(PI / 2.).translate(0., 0., 3.);
     let wall = Plane::new().with_transformation(wall_transformation);
 
     let middle_sphere_transformation = Matrix::translation(-0.5, 1., 0.5);
-    let _middle_sphere_pattern = pattern::StripePattern {
+    let middle_sphere_pattern = pattern::CheckerPattern {
         a: Color::new(0.1, 0., 0.9),
         b: Color::white(),
         ..Default::default()
@@ -41,7 +40,7 @@ fn main() {
         color: Color::new(0.1, 1., 0.5),
         diffuse: 0.7,
         specular: 0.3,
-        pattern: Some(Box::new(floor_pattern)),
+        pattern: Some(Box::new(middle_sphere_pattern)),
         ..Default::default()
     };
     let middle_sphere = Sphere::new()
@@ -104,8 +103,7 @@ fn main() {
         Tuple::vector(0., 1., 0.),
     )
     .expect("Should compute camera transformation");
-    let camera =
-        camera::Camera::new(2000, 1000, PI / 3.).with_transformation(camera_transformation);
+    let camera = camera::Camera::new(1000, 500, PI / 3.).with_transformation(camera_transformation);
     let canvas = camera.render(&world).expect("Should render the image");
 
     let ppm = canvas.to_ppm();

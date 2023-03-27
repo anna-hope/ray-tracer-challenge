@@ -352,7 +352,7 @@ pub mod checker {
 
     impl Pattern for CheckerPattern {
         fn pattern_at(&self, point: Tuple) -> Color {
-            if point.x.floor() + point.y.floor() + point.z.floor() % 2. == 0. {
+            if (point.x.floor() + point.y.floor() + point.z.floor()) % 2. == 0. {
                 self.a
             } else {
                 self.b

@@ -32,7 +32,7 @@ impl World {
             let color = comps.object.material().lighting(
                 comps.object,
                 light,
-                comps.point,
+                comps.over_point,
                 comps.eye_vector,
                 comps.normal_vector,
                 in_shadow,

@@ -103,7 +103,7 @@ impl Default for Material {
 
 #[cfg(test)]
 mod tests {
-    use crate::{pattern::stripe_pattern::StripePattern, shape::sphere::Sphere};
+    use crate::{pattern::stripe::StripePattern, shape::sphere::Sphere};
 
     use super::*;
 

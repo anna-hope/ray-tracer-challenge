@@ -5,7 +5,7 @@ use ray_tracer::{
     color::Color,
     light::PointLight,
     material::Material,
-    pattern::stripe_pattern::StripePattern,
+    pattern::stripe::StripePattern,
     shape::{plane::Plane, sphere::Sphere},
     transformation,
     world::World,

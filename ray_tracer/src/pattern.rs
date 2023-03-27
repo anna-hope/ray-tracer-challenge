@@ -3,8 +3,11 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum PatternType {
-    StripePattern,
-    TestPattern,
+    Stripe,
+    Gradient,
+    Ring,
+    Checker,
+    Test,
 }
 
 pub trait PatternClone {
@@ -60,7 +63,7 @@ impl Clone for Box<dyn Pattern> {
     }
 }
 
-pub mod stripe_pattern {
+pub mod stripe {
     use super::*;
 
     #[derive(Debug, Clone, PartialEq)]
@@ -97,7 +100,7 @@ pub mod stripe_pattern {
 
     impl Pattern for StripePattern {
         fn pattern_type(&self) -> PatternType {
-            PatternType::StripePattern
+            PatternType::Stripe
         }
 
         fn transformation(&self) -> Matrix {
@@ -200,6 +203,123 @@ pub mod stripe_pattern {
     }
 }
 
+pub mod gradient {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct GradientPattern {
+        a: Color,
+        b: Color,
+        transformation: Matrix,
+    }
+
+    impl Pattern for GradientPattern {
+        fn pattern_at(&self, point: Tuple) -> Color {
+            let distance = self.b - self.a;
+            let fraction = point.x - point.x.floor();
+            self.a + distance * fraction
+        }
+
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
+
+        fn pattern_type(&self) -> PatternType {
+            PatternType::Gradient
+        }
+    }
+
+    impl Default for GradientPattern {
+        fn default() -> Self {
+            Self {
+                a: Color::white(),
+                b: Color::black(),
+                transformation: Matrix::identity(),
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn gradient_linearly_interpolates_between_colors() {
+            let pattern = GradientPattern::default();
+            assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 0.)), Color::white());
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0.25, 0., 0.)),
+                Color::new(0.75, 0.75, 0.75)
+            );
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0.5, 0., 0.)),
+                Color::new(0.5, 0.5, 0.5)
+            );
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0.75, 0., 0.)),
+                Color::new(0.25, 0.25, 0.25)
+            );
+        }
+    }
+}
+
+pub mod ring {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct RingPattern {
+        a: Color,
+        b: Color,
+        transformation: Matrix,
+    }
+
+    impl Pattern for RingPattern {
+        fn pattern_at(&self, point: Tuple) -> Color {
+            if (point.x.powi(2) + point.z.powi(2)).sqrt().floor() % 2. == 0. {
+                self.a
+            } else {
+                self.b
+            }
+        }
+
+        fn pattern_type(&self) -> PatternType {
+            PatternType::Ring
+        }
+
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
+    }
+
+    impl Default for RingPattern {
+        fn default() -> Self {
+            Self {
+                a: Color::white(),
+                b: Color::black(),
+                transformation: Matrix::identity(),
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn ring_should_extend_in_both_x_and_z() {
+            let pattern = RingPattern::default();
+            assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 0.)), Color::white());
+            assert_eq!(pattern.pattern_at(Tuple::point(1., 0., 0.)), Color::black());
+            assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 1.)), Color::black());
+            // 0.708 = just slightly more than sqrt(2) / 2
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0.708, 0., 0.708)),
+                Color::black()
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -221,7 +341,7 @@ mod tests {
 
     impl Pattern for TestPattern {
         fn pattern_type(&self) -> PatternType {
-            PatternType::TestPattern
+            PatternType::Test
         }
 
         fn pattern_at(&self, point: Tuple) -> Color {

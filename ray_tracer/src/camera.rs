@@ -1,6 +1,7 @@
 use crate::{canvas::Canvas, world::World, Matrix, Ray, Result, Tuple};
 
-use indicatif::{ProgressIterator, ProgressStyle};
+use indicatif::{ParallelProgressIterator, ProgressStyle};
+use rayon::prelude::*;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -73,14 +74,24 @@ impl Camera {
         )
         .unwrap_or_else(|_| ProgressStyle::default_bar());
 
-        for y in (0..self.vsize - 1)
+        let colors = (0..self.vsize - 1)
+            .into_par_iter()
             .progress_with_style(style)
             .with_message("Rendering...")
-        {
-            for x in 0..self.hsize - 1 {
-                let ray = self.ray_for_pixel(x, y)?;
-                let color = world.color_at(&ray)?;
-                image.write_pixel(x, y, color);
+            .map(|y| {
+                let mut colors = vec![];
+                for x in 0..self.hsize - 1 {
+                    let ray = self.ray_for_pixel(x, y)?;
+                    let color = world.color_at(&ray)?;
+                    colors.push(color);
+                }
+                Ok(colors)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        for (y, row_colors) in colors.iter().enumerate() {
+            for (x, color) in row_colors.iter().enumerate() {
+                image.write_pixel(x, y, color.to_owned());
             }
         }
         Ok(image)

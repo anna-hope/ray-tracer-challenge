@@ -14,7 +14,7 @@ pub enum ShapeType {
     TestShape,
 }
 
-pub trait Shape: Intersect {
+pub trait Shape: Intersect + Send + Sync {
     /// Computes the normal vector at the world point.
     fn normal_at(&self, point: Tuple) -> Result<Tuple> {
         let transformation_inverse = self.transformation().inverse()?;

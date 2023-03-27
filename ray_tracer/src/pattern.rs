@@ -19,7 +19,7 @@ pub trait PatternClone {
     fn clone_box(&self) -> Box<dyn Pattern>;
 }
 
-pub trait Pattern: PatternClone {
+pub trait Pattern: PatternClone + Send + Sync {
     fn transformation(&self) -> Matrix;
 
     /// Converts a world point into a color for the given shape.

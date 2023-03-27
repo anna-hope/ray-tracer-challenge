@@ -1,4 +1,4 @@
-use crate::{color::Color, light::PointLight, pattern::StripePattern, shape::Shape, Result, Tuple};
+use crate::{color::Color, light::PointLight, pattern::Pattern, shape::Shape, Result, Tuple};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Material {
@@ -7,7 +7,7 @@ pub struct Material {
     pub diffuse: f64,
     pub specular: f64,
     pub shininess: f64,
-    pub pattern: Option<StripePattern>,
+    pub pattern: Option<Box<dyn Pattern>>,
 }
 
 impl Material {
@@ -23,7 +23,7 @@ impl Material {
         in_shadow: bool,
     ) -> Result<Color> {
         let color = if let Some(pattern) = &self.pattern {
-            pattern.stripe_at_object(object, point)?
+            pattern.pattern_at_shape(object, point)?
         } else {
             self.color
         };
@@ -103,7 +103,7 @@ impl Default for Material {
 
 #[cfg(test)]
 mod tests {
-    use crate::shape::sphere::Sphere;
+    use crate::{pattern::stripe_pattern::StripePattern, shape::sphere::Sphere};
 
     use super::*;
 
@@ -219,7 +219,7 @@ mod tests {
             ambient: 1.,
             diffuse: 0.,
             specular: 0.,
-            pattern: Some(StripePattern::new(Color::white(), Color::black())),
+            pattern: Some(Box::new(StripePattern::new(Color::white(), Color::black()))),
             ..Default::default()
         };
 

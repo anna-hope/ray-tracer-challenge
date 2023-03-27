@@ -5,7 +5,7 @@ use ray_tracer::{
     color::Color,
     light::PointLight,
     material::Material,
-    pattern::StripePattern,
+    pattern::stripe_pattern::StripePattern,
     shape::{plane::Plane, sphere::Sphere},
     transformation,
     world::World,
@@ -27,7 +27,7 @@ fn main() {
         color: Color::new(0.1, 1., 0.5),
         diffuse: 0.7,
         specular: 0.3,
-        pattern: Some(middle_sphere_pattern),
+        pattern: Some(Box::new(middle_sphere_pattern)),
         ..Default::default()
     };
     let middle_sphere = Sphere::new()
@@ -41,7 +41,10 @@ fn main() {
         color: Color::new(0.5, 1., 0.1),
         diffuse: 0.7,
         specular: 0.3,
-        pattern: Some(StripePattern::new(Color::new(0.1, 0., 0.9), Color::white())),
+        pattern: Some(Box::new(StripePattern::new(
+            Color::new(0.1, 0., 0.9),
+            Color::white(),
+        ))),
         ..Default::default()
     };
     let right_sphere = Sphere::new()
@@ -55,7 +58,10 @@ fn main() {
         color: Color::new(1., 0.8, 0.1),
         diffuse: 0.7,
         specular: 0.3,
-        pattern: Some(StripePattern::new(Color::new(0.1, 0., 0.9), Color::white())),
+        pattern: Some(Box::new(StripePattern::new(
+            Color::new(0.1, 0., 0.9),
+            Color::white(),
+        ))),
         ..Default::default()
     };
     let left_sphere = Sphere::new()

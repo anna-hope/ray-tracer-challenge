@@ -320,6 +320,93 @@ pub mod ring {
     }
 }
 
+pub mod checker {
+
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct CheckerPattern {
+        a: Color,
+        b: Color,
+        transformation: Matrix,
+    }
+
+    impl Default for CheckerPattern {
+        fn default() -> Self {
+            Self {
+                a: Color::white(),
+                b: Color::black(),
+                transformation: Matrix::identity(),
+            }
+        }
+    }
+
+    impl Pattern for CheckerPattern {
+        fn pattern_at(&self, point: Tuple) -> Color {
+            if point.x.floor() + point.y.floor() + point.z.floor() % 2. == 0. {
+                self.a
+            } else {
+                self.b
+            }
+        }
+
+        fn pattern_type(&self) -> PatternType {
+            PatternType::Checker
+        }
+
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn checkers_should_repeat_in_x() {
+            let pattern = CheckerPattern::default();
+            assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 0.)), Color::white());
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0.99, 0., 0.)),
+                Color::white()
+            );
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(1.01, 0., 0.)),
+                Color::black()
+            );
+        }
+
+        #[test]
+        fn checkers_should_repeat_in_y() {
+            let pattern = CheckerPattern::default();
+            assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 0.)), Color::white());
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0., 0.99, 0.)),
+                Color::white()
+            );
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0., 1.01, 0.)),
+                Color::black()
+            );
+        }
+
+        #[test]
+        fn checkers_should_repeat_in_z() {
+            let pattern = CheckerPattern::default();
+            assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 0.)), Color::white());
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0., 0., 0.99)),
+                Color::white()
+            );
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0., 0., 1.01)),
+                Color::black()
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 

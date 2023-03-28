@@ -29,6 +29,13 @@ impl Color {
     pub fn black() -> Self {
         Self::default()
     }
+
+    pub fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
+        let red = red as f64 / 255.;
+        let green = green as f64 / 255.;
+        let blue = blue as f64 / 255.;
+        Self { red, green, blue }
+    }
 }
 
 impl PartialEq for Color {
@@ -115,5 +122,11 @@ mod tests {
         let c1 = Color::new(1.0, 0.2, 0.4);
         let c2 = Color::new(0.9, 1.0, 0.1);
         assert_eq!(c1 * c2, Color::new(0.9, 0.2, 0.04));
+    }
+
+    #[test]
+    fn from_rgb() {
+        let color = Color::from_rgb(255, 255, 255);
+        assert_eq!(color, Color::new(1.0, 1.0, 1.0));
     }
 }

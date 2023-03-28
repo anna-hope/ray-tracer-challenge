@@ -70,7 +70,7 @@ impl Camera {
         let mut image = Canvas::new(self.hsize, self.vsize);
 
         let style = ProgressStyle::with_template(
-            "{msg} {elapsed}/{eta} {bar:40.cyan/blue} {pos:>7}/{len:7} {percent}%",
+            "{msg} {elapsed:>5} -- {eta:5} {bar:40.cyan/blue} {pos:>7}/{len:7} {percent}%",
         )
         .unwrap_or_else(|_| ProgressStyle::default_bar());
 

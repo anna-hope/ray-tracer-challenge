@@ -51,6 +51,16 @@ This is a good example of composition over inheritance.
 However, that makes it impossible to reuse the code in `intersect` as the book suggests, because the `Intersect` trait is independent of the `Shape` trait, and the `local_intersect` method relies on
 the `transformation` method, which is part of the `Shape` trait (or equivalent field in the concrete struct).
 
+### Patterns
+
+This is so far my least favorite part of the codebase. Boxed dynamic trait objects 
+`(Box<dyn Pattern>)` galore! Working with patterns (e.g. nesting them) is unwieldy and 
+unergonomic -- 
+you have to box them at every step. The whole things feels very not Rusty.
+
+In addition, it feels like some of the patterns are not implemented correctly. For example,
+the `BlendedPattern` does not seem to do much.
+
 ## Ideas for future improvements/enhancements
 
 - Support multiple light sources (p. 96)

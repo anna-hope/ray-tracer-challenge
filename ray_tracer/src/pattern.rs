@@ -447,12 +447,20 @@ pub mod radial_gradient {
 
     #[derive(Debug, Clone)]
     pub struct RadialGradientPattern {
-        pub a: Color,
-        pub b: Color,
-        pub transformation: Matrix,
+        a: Color,
+        b: Color,
+        transformation: Matrix,
     }
 
     impl RadialGradientPattern {
+        pub fn new(a: Color, b: Color, transformation: Matrix) -> Self {
+            Self {
+                a,
+                b,
+                transformation,
+            }
+        }
+
         pub fn with_transformation(mut self, transformation: Matrix) -> Self {
             self.transformation = transformation;
             self
@@ -610,45 +618,46 @@ pub mod blended {
     }
 }
 
-// pub mod perturbed {
+pub mod perturbed {
 
-//     use super::*;
-//     use perlin_noise::PerlinNoise;
+    use super::*;
+    use perlin_noise::PerlinNoise;
 
-//     #[derive(Debug, Clone)]
-//     pub struct PerturbedPattern {
-//         a: Box<dyn Pattern>,
-//         b: Box<dyn Pattern>,
-//         transformation: Matrix,
-//     }
+    #[derive(Debug, Clone)]
+    pub struct PerturbedPattern {
+        pattern: Box<dyn Pattern>,
+        transformation: Matrix,
+    }
 
-//     impl PerturbedPattern {
-//         pub fn new(a: Box<dyn Pattern>, b: Box<dyn Pattern>, transformation: Matrix) -> Self {
-//             Self {
-//                 a,
-//                 b,
-//                 transformation,
-//             }
-//         }
-//     }
+    impl PerturbedPattern {
+        pub fn new(pattern: Box<dyn Pattern>, transformation: Matrix) -> Self {
+            Self {
+                pattern,
+                transformation,
+            }
+        }
+    }
 
-//     impl Pattern for PerturbedPattern {
-//         /// Perturbs the given point with Perlin noise.
-//         fn pattern_at(&self, point: Tuple) -> Color {
-//             let perlin = PerlinNoise::new();
-//             let noise = perlin.get3d([point.x, point.y, point.z]);
-//             unimplemented!()
-//         }
+    impl Pattern for PerturbedPattern {
+        /// Perturbs the given point with Perlin noise.
+        fn pattern_at(&self, point: Tuple) -> Color {
+            let perlin = PerlinNoise::new();
+            let noise = perlin.get3d([point.x, point.y, point.z]);
+            let x = noise * 0.2 + point.x;
+            let y = noise * 0.2 + point.y;
+            let z = noise * 0.2 + point.z;
+            self.pattern.pattern_at(Tuple::point(x, y, z))
+        }
 
-//         fn transformation(&self) -> Matrix {
-//             self.transformation.clone()
-//         }
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
 
-//         fn pattern_type(&self) -> PatternType {
-//             PatternType::Perturbed
-//         }
-//     }
-// }
+        fn pattern_type(&self) -> PatternType {
+            PatternType::Perturbed
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

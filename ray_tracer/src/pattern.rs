@@ -1,17 +1,16 @@
 use crate::{color::Color, shape::Shape, Matrix, Result, Tuple};
 use std::fmt;
 
-pub use checker::CheckerPattern;
-pub use gradient::GradientPattern;
-pub use ring::RingPattern;
-pub use stripe::StripePattern;
-
 #[derive(Debug, PartialEq)]
 pub enum PatternType {
     Stripe,
     Gradient,
     Ring,
     Checker,
+    Radial,
+    Solid,
+    Blended,
+    Perturbed,
     Test,
 }
 
@@ -69,16 +68,24 @@ impl Clone for Box<dyn Pattern> {
 }
 
 pub mod stripe {
-    use super::*;
+    use super::{solid::SolidPattern, *};
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone)]
     pub struct StripePattern {
-        pub a: Color,
-        pub b: Color,
-        pub transformation: Matrix,
+        a: Box<dyn Pattern>,
+        b: Box<dyn Pattern>,
+        transformation: Matrix,
     }
 
     impl StripePattern {
+        pub fn new(a: Box<dyn Pattern>, b: Box<dyn Pattern>, transformation: Matrix) -> Self {
+            Self {
+                a,
+                b,
+                transformation,
+            }
+        }
+
         pub fn with_transformation(mut self, transformation: Matrix) -> Self {
             self.transformation = transformation;
             self
@@ -88,8 +95,8 @@ pub mod stripe {
     impl Default for StripePattern {
         fn default() -> Self {
             Self {
-                a: Color::white(),
-                b: Color::black(),
+                a: Box::new(SolidPattern::default()),
+                b: Box::new(SolidPattern::new(Color::black())),
                 transformation: Matrix::identity(),
             }
         }
@@ -105,11 +112,12 @@ pub mod stripe {
         }
 
         fn pattern_at(&self, point: Tuple) -> Color {
-            if point.x.floor() % 2. == 0. {
-                self.a
+            let pattern = if point.x.floor() % 2. == 0. {
+                &self.a
             } else {
-                self.b
-            }
+                &self.b
+            };
+            pattern.pattern_at(point)
         }
     }
 
@@ -121,11 +129,7 @@ pub mod stripe {
 
         #[test]
         fn create_stripe_pattern() {
-            let black = Color::black();
-            let white = Color::white();
-            let pattern = StripePattern::default();
-            assert_eq!(pattern.a, white);
-            assert_eq!(pattern.b, black);
+            let _pattern = StripePattern::default();
         }
 
         #[test]
@@ -171,8 +175,8 @@ pub mod stripe {
         fn stripes_with_pattern_transformation() {
             let object = Sphere::new();
             let pattern = StripePattern {
-                a: Color::white(),
-                b: Color::black(),
+                a: Box::new(SolidPattern::default()),
+                b: Box::new(SolidPattern::new(Color::black())),
                 transformation: Matrix::scaling(2., 2., 2.),
             };
             let color = pattern
@@ -184,11 +188,8 @@ pub mod stripe {
         #[test]
         fn stripes_with_both_object_and_pattern_transformation() {
             let object = Sphere::new().with_transformation(Matrix::scaling(2., 2., 2.));
-            let pattern = StripePattern {
-                a: Color::white(),
-                b: Color::black(),
-                transformation: Matrix::translation(0.5, 0., 0.),
-            };
+            let pattern =
+                StripePattern::default().with_transformation(Matrix::translation(0.5, 0., 0.));
 
             let color = pattern
                 .pattern_at_shape(&object, Tuple::point(2.5, 0., 0.))
@@ -209,6 +210,14 @@ pub mod gradient {
     }
 
     impl GradientPattern {
+        pub fn new(a: Color, b: Color, transformation: Matrix) -> Self {
+            Self {
+                a,
+                b,
+                transformation,
+            }
+        }
+
         pub fn with_transformation(mut self, transformation: Matrix) -> Self {
             self.transformation = transformation;
             self
@@ -218,8 +227,7 @@ pub mod gradient {
     impl Pattern for GradientPattern {
         fn pattern_at(&self, point: Tuple) -> Color {
             let distance = self.b - self.a;
-            let fraction = point.x - point.x.floor();
-            self.a + distance * fraction
+            self.a + distance * point.x
         }
 
         fn transformation(&self) -> Matrix {
@@ -275,6 +283,16 @@ pub mod ring {
         pub transformation: Matrix,
     }
 
+    impl RingPattern {
+        pub fn new(a: Color, b: Color, transformation: Matrix) -> Self {
+            Self {
+                a,
+                b,
+                transformation,
+            }
+        }
+    }
+
     impl Pattern for RingPattern {
         fn pattern_at(&self, point: Tuple) -> Color {
             if (point.x.powi(2) + point.z.powi(2)).sqrt().floor() % 2. == 0. {
@@ -324,16 +342,24 @@ pub mod ring {
 
 pub mod checker {
 
-    use super::*;
+    use super::{solid::SolidPattern, *};
 
     #[derive(Debug, Clone)]
     pub struct CheckerPattern {
-        pub a: Color,
-        pub b: Color,
+        pub a: Box<dyn Pattern>,
+        pub b: Box<dyn Pattern>,
         pub transformation: Matrix,
     }
 
     impl CheckerPattern {
+        pub fn new(a: Box<dyn Pattern>, b: Box<dyn Pattern>, transformation: Matrix) -> Self {
+            Self {
+                a,
+                b,
+                transformation,
+            }
+        }
+
         pub fn with_transformation(mut self, transformation: Matrix) -> Self {
             self.transformation = transformation;
             self
@@ -343,8 +369,8 @@ pub mod checker {
     impl Default for CheckerPattern {
         fn default() -> Self {
             Self {
-                a: Color::white(),
-                b: Color::black(),
+                a: Box::new(SolidPattern::default()),
+                b: Box::new(SolidPattern::new(Color::black())),
                 transformation: Matrix::identity(),
             }
         }
@@ -353,9 +379,9 @@ pub mod checker {
     impl Pattern for CheckerPattern {
         fn pattern_at(&self, point: Tuple) -> Color {
             if (point.x.floor() + point.y.floor() + point.z.floor()) % 2. == 0. {
-                self.a
+                self.a.pattern_at(point)
             } else {
-                self.b
+                self.b.pattern_at(point)
             }
         }
 
@@ -415,6 +441,214 @@ pub mod checker {
         }
     }
 }
+
+pub mod radial_gradient {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct RadialGradientPattern {
+        pub a: Color,
+        pub b: Color,
+        pub transformation: Matrix,
+    }
+
+    impl RadialGradientPattern {
+        pub fn with_transformation(mut self, transformation: Matrix) -> Self {
+            self.transformation = transformation;
+            self
+        }
+    }
+
+    impl Default for RadialGradientPattern {
+        fn default() -> Self {
+            Self {
+                a: Color::white(),
+                b: Color::black(),
+                transformation: Matrix::identity(),
+            }
+        }
+    }
+
+    impl Pattern for RadialGradientPattern {
+        fn pattern_type(&self) -> PatternType {
+            PatternType::Radial
+        }
+
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
+
+        /// Interpolates between two colors radially.
+        fn pattern_at(&self, point: Tuple) -> Color {
+            let distance = (point.x.powi(2) + point.z.powi(2)).sqrt();
+            let fraction = distance - distance.floor();
+            self.a + (self.b - self.a) * fraction
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn radial_gradient_should_linearly_interpolate_between_colors() {
+            // smoothly flow between two colors in the x direction
+            let pattern = RadialGradientPattern::default();
+            assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 0.)), Color::white());
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0.25, 0., 0.)),
+                Color::new(0.75, 0.75, 0.75)
+            );
+            assert_eq!(
+                pattern.pattern_at(Tuple::point(0.5, 0., 0.)),
+                Color::new(0.5, 0.5, 0.5)
+            );
+        }
+    }
+}
+
+pub mod solid {
+    use super::*;
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct SolidPattern {
+        color: Color,
+    }
+
+    impl SolidPattern {
+        pub fn new(color: Color) -> Self {
+            Self { color }
+        }
+    }
+
+    impl Default for SolidPattern {
+        fn default() -> Self {
+            Self {
+                color: Color::white(),
+            }
+        }
+    }
+
+    impl Pattern for SolidPattern {
+        /// Always returns the identity matrix.
+        fn transformation(&self) -> Matrix {
+            Matrix::identity()
+        }
+
+        fn pattern_type(&self) -> PatternType {
+            PatternType::Solid
+        }
+
+        /// Always returns the same color, regardless of the point.
+        fn pattern_at(&self, _point: Tuple) -> Color {
+            self.color
+        }
+
+        /// Always returns the same color, regardless of the shape or point.
+        fn pattern_at_shape(&self, _shape: &dyn Shape, _world_point: Tuple) -> Result<Color> {
+            Ok(self.color)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn solid_pattern_always_returns_same_color() {
+            let pattern = SolidPattern {
+                color: Color::white(),
+            };
+            assert_eq!(pattern.pattern_at(Tuple::point(0., 0., 0.)), Color::white());
+            assert_eq!(pattern.pattern_at(Tuple::point(1., 0., 0.)), Color::white());
+        }
+    }
+}
+
+pub mod blended {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct BlendedPattern {
+        a: Box<dyn Pattern>,
+        b: Box<dyn Pattern>,
+        transformation: Matrix,
+    }
+
+    impl BlendedPattern {
+        pub fn new(a: Box<dyn Pattern>, b: Box<dyn Pattern>, transformation: Matrix) -> Self {
+            Self {
+                a,
+                b,
+                transformation,
+            }
+        }
+
+        pub fn with_transformation(mut self, transformation: Matrix) -> Self {
+            self.transformation = transformation;
+            self
+        }
+    }
+
+    impl Pattern for BlendedPattern {
+        fn pattern_at(&self, point: Tuple) -> Color {
+            let color1 = self.a.pattern_at(point);
+            let color2 = self.b.pattern_at(point);
+            let red = (color1.red + color2.red) / 2.;
+            let green = (color1.green + color2.green) / 2.;
+            let blue = (color1.blue + color2.blue) / 2.;
+            Color::new(red, green, blue)
+        }
+
+        fn pattern_type(&self) -> PatternType {
+            PatternType::Blended
+        }
+
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
+    }
+}
+
+// pub mod perturbed {
+
+//     use super::*;
+//     use perlin_noise::PerlinNoise;
+
+//     #[derive(Debug, Clone)]
+//     pub struct PerturbedPattern {
+//         a: Box<dyn Pattern>,
+//         b: Box<dyn Pattern>,
+//         transformation: Matrix,
+//     }
+
+//     impl PerturbedPattern {
+//         pub fn new(a: Box<dyn Pattern>, b: Box<dyn Pattern>, transformation: Matrix) -> Self {
+//             Self {
+//                 a,
+//                 b,
+//                 transformation,
+//             }
+//         }
+//     }
+
+//     impl Pattern for PerturbedPattern {
+//         /// Perturbs the given point with Perlin noise.
+//         fn pattern_at(&self, point: Tuple) -> Color {
+//             let perlin = PerlinNoise::new();
+//             let noise = perlin.get3d([point.x, point.y, point.z]);
+//             unimplemented!()
+//         }
+
+//         fn transformation(&self) -> Matrix {
+//             self.transformation.clone()
+//         }
+
+//         fn pattern_type(&self) -> PatternType {
+//             PatternType::Perturbed
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

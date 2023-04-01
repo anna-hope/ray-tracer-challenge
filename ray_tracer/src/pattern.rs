@@ -163,7 +163,7 @@ pub mod stripe {
 
         #[test]
         fn stripes_with_object_transformation() {
-            let object = Sphere::new().with_transformation(Matrix::scaling(2., 2., 2.));
+            let object = Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.));
             let pattern = StripePattern::default();
             let color = pattern
                 .pattern_at_shape(&object, Tuple::point(1.5, 0., 0.))
@@ -173,7 +173,7 @@ pub mod stripe {
 
         #[test]
         fn stripes_with_pattern_transformation() {
-            let object = Sphere::new();
+            let object = Sphere::default();
             let pattern = StripePattern {
                 a: Box::new(SolidPattern::default()),
                 b: Box::new(SolidPattern::new(Color::black())),
@@ -187,7 +187,7 @@ pub mod stripe {
 
         #[test]
         fn stripes_with_both_object_and_pattern_transformation() {
-            let object = Sphere::new().with_transformation(Matrix::scaling(2., 2., 2.));
+            let object = Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.));
             let pattern =
                 StripePattern::default().with_transformation(Matrix::translation(0.5, 0., 0.));
 
@@ -719,7 +719,7 @@ mod tests {
 
     #[test]
     fn pattern_with_object_transformation() {
-        let shape = Sphere::new().with_transformation(Matrix::scaling(2., 2., 2.));
+        let shape = Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.));
         let pattern: Box<dyn Pattern> = Box::new(TestPattern::default());
         let color = pattern
             .pattern_at_shape(&shape, Tuple::point(2., 3., 4.))
@@ -729,7 +729,7 @@ mod tests {
 
     #[test]
     fn pattern_with_pattern_transformation() {
-        let shape = Sphere::new();
+        let shape = Sphere::default();
         let pattern: Box<dyn Pattern> =
             Box::new(TestPattern::default().with_transformation(Matrix::scaling(2., 2., 2.)));
         let color = pattern
@@ -740,7 +740,7 @@ mod tests {
 
     #[test]
     fn pattern_with_both_object_and_pattern_transformation() {
-        let shape = Sphere::new().with_transformation(Matrix::scaling(2., 2., 2.));
+        let shape = Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.));
         let pattern: Box<dyn Pattern> =
             Box::new(TestPattern::default().with_transformation(Matrix::translation(0.5, 1., 1.5)));
         let color = pattern

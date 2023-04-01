@@ -81,16 +81,26 @@ pub mod sphere {
 
     impl Sphere {
         /// Instantiates a new Sphere with an auto-incrementing id.
-        pub fn new() -> Self {
+        pub fn new(transformation: Matrix, material: Material) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-            let transformation = Matrix::identity();
-            let material = Material::default();
             Self {
                 id,
                 transformation,
                 material,
             }
+        }
+
+        /// Instantiates a new glass Sphere
+        /// (transparency = 1, refractive_index = 1.5).
+        pub fn glass() -> Self {
+            let transformation = Matrix::identity();
+            let material = Material {
+                transparency: 1.,
+                refractive_index: 1.5,
+                ..Default::default()
+            };
+            Self::new(transformation, material)
         }
 
         pub fn with_transformation(mut self, transformation: Matrix) -> Self {
@@ -106,7 +116,9 @@ pub mod sphere {
 
     impl Default for Sphere {
         fn default() -> Self {
-            Self::new()
+            let transformation = Matrix::identity();
+            let material = Material::default();
+            Self::new(transformation, material)
         }
     }
 
@@ -178,15 +190,15 @@ pub mod sphere {
 
         #[test]
         fn two_spheres_have_different_ids() {
-            let sphere = Sphere::new();
-            let sphere2 = Sphere::new();
+            let sphere = Sphere::default();
+            let sphere2 = Sphere::default();
             assert_ne!(sphere.id, sphere2.id);
         }
 
         #[test]
         fn ray_intersects_sphere_at_2_points() {
             let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].t, 4.0);
@@ -196,7 +208,7 @@ pub mod sphere {
         #[test]
         fn ray_intersects_sphere_at_tangent() {
             let ray = Ray::new(Tuple::point(0., 1., -5.), Tuple::vector(0., 0., 1.));
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].t, 5.);
@@ -206,7 +218,7 @@ pub mod sphere {
         #[test]
         fn ray_misses_sphere() {
             let ray = Ray::new(Tuple::point(0., 2., -5.), Tuple::vector(0., 0., 1.));
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert!(xs.is_empty());
         }
@@ -214,7 +226,7 @@ pub mod sphere {
         #[test]
         fn ray_originates_inside_sphere() {
             let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].t, -1.);
@@ -224,7 +236,7 @@ pub mod sphere {
         #[test]
         fn sphere_is_behind_ray() {
             let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].t, -6.);
@@ -234,7 +246,7 @@ pub mod sphere {
         #[test]
         fn intersect_sets_object_on_intersection() {
             let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].object.id(), sphere.id());
@@ -243,21 +255,21 @@ pub mod sphere {
 
         #[test]
         fn sphere_default_transformation() {
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             assert_eq!(sphere.transformation, Matrix::identity());
         }
 
         #[test]
         fn changing_sphere_transformation() {
             let translation = Matrix::translation(2., 3., 4.);
-            let sphere = Sphere::new().with_transformation(translation.clone());
+            let sphere = Sphere::default().with_transformation(translation.clone());
             assert_eq!(sphere.transformation, translation);
         }
 
         #[test]
         fn intersect_scaled_sphere_with_ray() {
             let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-            let sphere = Sphere::new().with_transformation(Matrix::scaling(2., 2., 2.));
+            let sphere = Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.));
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
             assert_eq!(xs[0].t, 3.);
@@ -267,35 +279,35 @@ pub mod sphere {
         #[test]
         fn intersect_translated_sphere_with_ray() {
             let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-            let sphere = Sphere::new().with_transformation(Matrix::translation(5., 0., 0.));
+            let sphere = Sphere::default().with_transformation(Matrix::translation(5., 0., 0.));
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 0);
         }
 
         #[test]
         fn normal_on_sphere_x_axis() {
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let normal = sphere.normal_at(Tuple::point(1., 0., 0.)).unwrap();
             assert_eq!(normal, Tuple::vector(1., 0., 0.));
         }
 
         #[test]
         fn normal_on_sphere_y_axis() {
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let normal = sphere.normal_at(Tuple::point(0., 1., 0.)).unwrap();
             assert_eq!(normal, Tuple::vector(0., 1., 0.));
         }
 
         #[test]
         fn normal_on_sphere_z_axis() {
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let normal = sphere.normal_at(Tuple::point(0., 0., 1.)).unwrap();
             assert_eq!(normal, Tuple::vector(0., 0., 1.));
         }
 
         #[test]
         fn normal_on_sphere_nonaxial() {
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let val = 3.0_f64.sqrt() / 3.;
             let normal = sphere.normal_at(Tuple::point(val, val, val)).unwrap();
             assert_eq!(normal, Tuple::vector(val, val, val));
@@ -303,7 +315,7 @@ pub mod sphere {
 
         #[test]
         fn normal_is_normalized_vector() {
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             let val = 3.0_f64.sqrt() / 3.;
             let normal = sphere.normal_at(Tuple::point(val, val, val)).unwrap();
             assert_eq!(normal, normal.norm());
@@ -311,7 +323,7 @@ pub mod sphere {
 
         #[test]
         fn compute_normal_translated_sphere() {
-            let sphere = Sphere::new().with_transformation(Matrix::translation(0., 1., 0.));
+            let sphere = Sphere::default().with_transformation(Matrix::translation(0., 1., 0.));
             let normal = sphere
                 .normal_at(Tuple::point(0., 1.70711, -0.70711))
                 .unwrap();
@@ -321,7 +333,7 @@ pub mod sphere {
         #[test]
         fn compute_normal_transformed_sphere() {
             let matrix = Matrix::identity().rotate_z(PI / 5.).scale(1., 0.5, 1.);
-            let sphere = Sphere::new().with_transformation(matrix);
+            let sphere = Sphere::default().with_transformation(matrix);
             let val = 2.0_f64.sqrt() / 2.;
             let normal = sphere.normal_at(Tuple::point(0., val, -val)).unwrap();
             assert_eq!(normal, Tuple::vector(0., 0.97014, -0.24254));
@@ -329,7 +341,7 @@ pub mod sphere {
 
         #[test]
         fn sphere_has_default_material() {
-            let sphere = Sphere::new();
+            let sphere = Sphere::default();
             assert_eq!(sphere.material, Material::default());
         }
 
@@ -337,8 +349,16 @@ pub mod sphere {
         fn sphere_may_be_assigned_material() {
             let mut material = Material::default();
             material.ambient = 1.;
-            let sphere = Sphere::new().with_material(material.clone());
+            let sphere = Sphere::default().with_material(material.clone());
             assert_eq!(sphere.material, material);
+        }
+
+        #[test]
+        fn produce_glass_sphere() {
+            let sphere = Sphere::glass();
+            assert_eq!(sphere.transformation, Matrix::identity());
+            assert_eq!(sphere.material.transparency, 1.);
+            assert_eq!(sphere.material.refractive_index, 1.5);
         }
     }
 }

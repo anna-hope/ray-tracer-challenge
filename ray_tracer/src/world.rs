@@ -107,8 +107,8 @@ impl Default for World {
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
-        let sphere1 = Box::new(Sphere::new().with_material(material));
-        let sphere2 = Box::new(Sphere::new().with_transformation(transformation));
+        let sphere1 = Box::new(Sphere::default().with_material(material));
+        let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
 
         Self {
             light: Some(light),
@@ -159,8 +159,8 @@ mod tests {
         };
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
-        let sphere1 = Sphere::new().with_material(material);
-        let sphere2 = Sphere::new().with_transformation(transformation);
+        let sphere1 = Sphere::default().with_material(material);
+        let sphere2 = Sphere::default().with_transformation(transformation);
 
         // kind of an ugly hack to deal with the fact
         // that we can't easily clone trait objects
@@ -220,8 +220,8 @@ mod tests {
     #[test]
     fn shade_hit_is_given_intersection_in_shadow() {
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
-        let sphere1 = Sphere::new();
-        let sphere2 = Sphere::new().with_transformation(Matrix::translation(0., 0., 10.));
+        let sphere1 = Sphere::default();
+        let sphere2 = Sphere::default().with_transformation(Matrix::translation(0., 0., 10.));
         let world = World {
             light: Some(light),
             objects: vec![Box::new(sphere1), Box::new(sphere2.clone())],
@@ -322,8 +322,8 @@ mod tests {
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
-        let sphere1 = Box::new(Sphere::new().with_material(material));
-        let sphere2 = Box::new(Sphere::new().with_transformation(transformation));
+        let sphere1 = Box::new(Sphere::default().with_material(material));
+        let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
 
         let world = World {
             light: Some(light),
@@ -349,8 +349,8 @@ mod tests {
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
-        let sphere1 = Box::new(Sphere::new().with_material(material));
-        let sphere2 = Box::new(Sphere::new().with_transformation(transformation));
+        let sphere1 = Box::new(Sphere::default().with_material(material));
+        let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
 
         let shape = Plane::new()
             .with_material(Material {
@@ -390,8 +390,8 @@ mod tests {
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
-        let sphere1 = Box::new(Sphere::new().with_material(material));
-        let sphere2 = Box::new(Sphere::new().with_transformation(transformation));
+        let sphere1 = Box::new(Sphere::default().with_material(material));
+        let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
 
         let shape = Plane::new()
             .with_material(Material {
@@ -427,8 +427,8 @@ mod tests {
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
-        let sphere1 = Box::new(Sphere::new().with_material(material));
-        let sphere2 = Box::new(Sphere::new().with_transformation(transformation));
+        let sphere1 = Box::new(Sphere::default().with_material(material));
+        let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
 
         let light = PointLight::new(Tuple::point(0., 0., 0.), Color::new(1., 1., 1.));
 

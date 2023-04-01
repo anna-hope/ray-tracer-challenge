@@ -92,7 +92,7 @@ fn main() {
         pattern: Some(Box::new(middle_sphere_subpattern)),
         ..Default::default()
     };
-    let middle_sphere = Sphere::new()
+    let middle_sphere = Sphere::default()
         .with_material(middle_sphere_material)
         .with_transformation(middle_sphere_transformation);
 
@@ -111,7 +111,7 @@ fn main() {
         })),
         ..Default::default()
     };
-    let right_sphere = Sphere::new()
+    let right_sphere = Sphere::default()
         .with_transformation(right_sphere_transformation)
         .with_material(right_sphere_material);
 
@@ -134,7 +134,7 @@ fn main() {
         pattern: Some(Box::new(left_sphere_pattern)),
         ..Default::default()
     };
-    let left_sphere = Sphere::new()
+    let left_sphere = Sphere::default()
         .with_transformation(left_sphere_transformation)
         .with_material(left_sphere_material);
 

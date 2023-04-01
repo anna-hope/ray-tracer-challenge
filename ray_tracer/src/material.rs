@@ -9,6 +9,8 @@ pub struct Material {
     pub shininess: f64,
     pub pattern: Option<Box<dyn Pattern>>,
     pub reflective: f64,
+    pub transparency: f64,
+    pub refractive_index: f64,
 }
 
 impl Material {
@@ -83,23 +85,19 @@ impl Material {
 impl Default for Material {
     /// Initialize material with the default parameters:
     /// color = white, ambient = 0.1, diffuse = 0.9, specular = 0.9,
-    /// shininess = 200, and black and white stripes.
+    /// shininess = 200, pattern = None, reflective = 0., transparency: 0.,
+    /// refractive_index: 1.
     fn default() -> Self {
-        let color = Color::white();
-        let ambient = 0.1;
-        let diffuse = 0.9;
-        let specular = 0.9;
-        let shininess = 200.;
-        let pattern = None;
-        let reflective = 0.;
         Self {
-            color,
-            ambient,
-            diffuse,
-            specular,
-            shininess,
-            pattern,
-            reflective,
+            color: Color::white(),
+            ambient: 0.1,
+            diffuse: 0.9,
+            specular: 0.9,
+            shininess: 200.,
+            pattern: None,
+            reflective: 0.,
+            transparency: 0.,
+            refractive_index: 1.,
         }
     }
 }
@@ -127,7 +125,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
-        let object = Sphere::new();
+        let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
             .unwrap();
@@ -142,7 +140,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., val, -val);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
-        let object = Sphere::new();
+        let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
             .unwrap();
@@ -156,7 +154,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 10., -10.), Color::white());
-        let object = Sphere::new();
+        let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
             .unwrap();
@@ -172,7 +170,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., -val, -val);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 10., -10.), Color::white());
-        let object = Sphere::new();
+        let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
             .unwrap();
@@ -187,7 +185,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., 10.), Color::white());
-        let object = Sphere::new();
+        let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
             .unwrap();
@@ -202,7 +200,7 @@ mod tests {
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
         let in_shadow = true;
-        let object = Sphere::new();
+        let object = Sphere::default();
         let result = material
             .lighting(
                 &object,
@@ -229,7 +227,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
-        let shape = Sphere::new();
+        let shape = Sphere::default();
         let color1 = material
             .lighting(
                 &shape.clone(),
@@ -260,5 +258,12 @@ mod tests {
     fn reflectivity_default_material() {
         let material = Material::default();
         assert_eq!(material.reflective, 0.);
+    }
+
+    #[test]
+    fn transparency_refractive_index_for_default_material() {
+        let material = Material::default();
+        assert_eq!(material.transparency, 0.);
+        assert_eq!(material.refractive_index, 1.);
     }
 }

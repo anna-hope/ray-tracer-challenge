@@ -95,7 +95,7 @@ pub mod stripe {
     impl Default for StripePattern {
         fn default() -> Self {
             Self {
-                a: Box::new(SolidPattern::default()),
+                a: Box::<SolidPattern>::default(),
                 b: Box::new(SolidPattern::new(Color::black())),
                 transformation: Matrix::identity(),
             }
@@ -369,7 +369,7 @@ pub mod checker {
     impl Default for CheckerPattern {
         fn default() -> Self {
             Self {
-                a: Box::new(SolidPattern::default()),
+                a: Box::<SolidPattern>::default(),
                 b: Box::new(SolidPattern::new(Color::black())),
                 transformation: Matrix::identity(),
             }

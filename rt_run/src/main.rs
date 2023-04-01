@@ -52,7 +52,8 @@ fn main() {
         ..Default::default() // transformation: Matrix::scaling(3., 3., 3.),
     };
     let floor_material = Material {
-        pattern: Some(Box::new(floor_pattern.clone())),
+        pattern: Some(Box::new(floor_pattern)),
+        reflective: 0.6,
         ..Default::default()
     };
     let floor = Plane::new()
@@ -60,7 +61,13 @@ fn main() {
         .with_transformation(Matrix::scaling(3., 3., 3.));
 
     let wall_transformation = Matrix::identity().rotate_x(PI / 2.).translate(0., 0., 3.);
-    let wall = Plane::new().with_transformation(wall_transformation);
+    let wall_material = Material {
+        reflective: 1.,
+        ..Default::default()
+    };
+    let wall = Plane::new()
+        .with_transformation(wall_transformation)
+        .with_material(wall_material);
 
     let middle_sphere_transformation = Matrix::translation(-0.5, 1., 0.5);
     let solid_pattern1 = pattern::solid::SolidPattern::new(Color::new(0.1, 0., 0.9));
@@ -72,16 +79,17 @@ fn main() {
         Matrix::identity(),
     );
 
-    let middle_sphere_pattern = pattern::perturbed::PerturbedPattern::new(
-        Box::new(middle_sphere_subpattern),
-        Matrix::scaling(0.5, 1.0, 0.5),
-    );
+    // let middle_sphere_pattern = pattern::perturbed::PerturbedPattern::new(
+    //     Box::new(middle_sphere_subpattern),
+    //     Matrix::scaling(0.5, 1.0, 0.5),
+    // );
 
     let middle_sphere_material = Material {
         color: Color::new(0.1, 1., 0.5),
         diffuse: 0.7,
         specular: 0.3,
-        pattern: Some(Box::new(middle_sphere_pattern)),
+        reflective: 0.3,
+        pattern: Some(Box::new(middle_sphere_subpattern)),
         ..Default::default()
     };
     let middle_sphere = Sphere::new()
@@ -95,6 +103,7 @@ fn main() {
         color: Color::new(0.5, 1., 0.1),
         diffuse: 0.7,
         specular: 0.3,
+        reflective: 0.5,
         pattern: Some(Box::new(pattern::gradient::GradientPattern {
             a: Color::from_rgb(218, 112, 214),
             b: Color::from_rgb(75, 0, 130),

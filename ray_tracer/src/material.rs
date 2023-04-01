@@ -8,6 +8,7 @@ pub struct Material {
     pub specular: f64,
     pub shininess: f64,
     pub pattern: Option<Box<dyn Pattern>>,
+    pub reflective: f64,
 }
 
 impl Material {
@@ -90,6 +91,7 @@ impl Default for Material {
         let specular = 0.9;
         let shininess = 200.;
         let pattern = None;
+        let reflective = 0.;
         Self {
             color,
             ambient,
@@ -97,6 +99,7 @@ impl Default for Material {
             specular,
             shininess,
             pattern,
+            reflective,
         }
     }
 }
@@ -251,5 +254,11 @@ mod tests {
 
         assert_eq!(color1, Color::white());
         assert_eq!(color2, Color::black());
+    }
+
+    #[test]
+    fn reflectivity_default_material() {
+        let material = Material::default();
+        assert_eq!(material.reflective, 0.);
     }
 }

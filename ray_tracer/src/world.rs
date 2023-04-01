@@ -15,11 +15,12 @@ pub struct World {
 
 impl World {
     /// Constructs an empty world with no objects and no light.
-    pub fn new() -> Self {
-        Self {
-            objects: vec![],
-            light: None,
-        }
+    pub fn new(objects: Vec<Box<dyn Shape>>, light: Option<PointLight>) -> Self {
+        Self { objects, light }
+    }
+
+    pub fn new_empty() -> Self {
+        Self::new(vec![], None)
     }
 
     /// Returns the color at the intersection encapsulated by comps,
@@ -29,7 +30,7 @@ impl World {
         // (p. 96 of the book)
         if let Some(light) = self.light {
             let in_shadow = self.is_shadowed(comps.over_point)?;
-            let color = comps.object.material().lighting(
+            let surface_color = comps.object.material().lighting(
                 comps.object,
                 light,
                 comps.over_point,
@@ -37,7 +38,10 @@ impl World {
                 comps.normal_vector,
                 in_shadow,
             )?;
-            Ok(color)
+
+            let reflected_color = self.reflected_color(comps)?;
+
+            Ok(surface_color + reflected_color)
         } else {
             Ok(Color::default())
         }
@@ -73,6 +77,17 @@ impl World {
             // if there is no light, everything is shadowed
             Ok(true)
         }
+    }
+
+    fn reflected_color(&self, comps: &Computations) -> Result<Color> {
+        let material_reflective = comps.object.material().reflective;
+        if material_reflective == 0. {
+            return Ok(Color::black());
+        }
+
+        let reflect_ray = Ray::new(comps.over_point, comps.reflect_vector);
+        let color = self.color_at(&reflect_ray)?;
+        Ok(color * material_reflective)
     }
 }
 
@@ -116,11 +131,13 @@ impl Intersect for World {
 
 #[cfg(test)]
 mod tests {
+    use crate::shape::plane::Plane;
+
     use super::*;
 
     #[test]
     fn create_a_world() {
-        let world = World::new();
+        let world = World::new_empty();
         assert!(world.objects.is_empty());
         assert_eq!(world.light, None);
     }
@@ -284,5 +301,159 @@ mod tests {
         let world = World::default();
         let point = Tuple::point(-2., -2., -2.);
         assert!(!world.is_shadowed(point).unwrap());
+    }
+
+    #[test]
+    fn reflected_color_for_nonreflective_material() {
+        // we have to replicate all this code here to avoid a borrow checker error
+        // that would result from a simultaneous mutable and immutable borrow of world
+        // which would happen if we went the route of constructing a default world
+        // then getting a mutable reference to its second shape
+        // and trying to set the material on that directly
+        let light = PointLight::new(Tuple::point(-10., 10., -10.), Color::white());
+
+        let material = Material {
+            color: Color::new(0.8, 1.0, 0.6),
+            diffuse: 0.7,
+            specular: 0.2,
+            ambient: 1.,
+            ..Default::default()
+        };
+
+        let transformation = Matrix::scaling(0.5, 0.5, 0.5);
+
+        let sphere1 = Box::new(Sphere::new().with_material(material));
+        let sphere2 = Box::new(Sphere::new().with_transformation(transformation));
+
+        let world = World {
+            light: Some(light),
+            objects: vec![sphere1, sphere2],
+        };
+        let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
+
+        let intersection = &world.objects[1].arbitrary_intersection(1.);
+        let comps = intersection.prepare_computations(&ray).unwrap();
+        let color = world.reflected_color(&comps).unwrap();
+        assert_eq!(color, Color::black());
+    }
+
+    #[test]
+    fn reflected_color_for_reflective_material() {
+        // ditto about repeating the code to prevent running afoul of the borrow checker
+        let material = Material {
+            color: Color::new(0.8, 1.0, 0.6),
+            diffuse: 0.7,
+            specular: 0.2,
+            ..Default::default()
+        };
+
+        let transformation = Matrix::scaling(0.5, 0.5, 0.5);
+
+        let sphere1 = Box::new(Sphere::new().with_material(material));
+        let sphere2 = Box::new(Sphere::new().with_transformation(transformation));
+
+        let shape = Plane::new()
+            .with_material(Material {
+                reflective: 0.5,
+                ..Default::default()
+            })
+            .with_transformation(Matrix::translation(0., -1., 0.));
+        let world = World {
+            objects: vec![sphere1, sphere2, Box::new(shape)],
+            ..Default::default()
+        };
+
+        let val = 2.0_f64.sqrt() / 2.;
+        let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
+        let intersection = &world.objects[2].arbitrary_intersection(2.0_f64.sqrt());
+        let comps = intersection.prepare_computations(&ray).unwrap();
+
+        let color = world.reflected_color(&comps).unwrap();
+
+        // the expected values are slightly modified from the book
+        // to account for floating point errors
+        // which occur because the values given by the book are off from the ones we get here
+        // by more than EPSILON
+        // cf. book values: color(0.19032, 0.2379, 0.14274)
+        assert_eq!(color, Color::new(0.19033, 0.23792, 0.14274));
+    }
+
+    #[test]
+    fn shade_hit_with_reflective_material() {
+        // ditto about repeating the code to prevent running afoul of the borrow checker
+        let material = Material {
+            color: Color::new(0.8, 1.0, 0.6),
+            diffuse: 0.7,
+            specular: 0.2,
+            ..Default::default()
+        };
+
+        let transformation = Matrix::scaling(0.5, 0.5, 0.5);
+
+        let sphere1 = Box::new(Sphere::new().with_material(material));
+        let sphere2 = Box::new(Sphere::new().with_transformation(transformation));
+
+        let shape = Plane::new()
+            .with_material(Material {
+                reflective: 0.5,
+                ..Default::default()
+            })
+            .with_transformation(Matrix::translation(0., -1., 0.));
+        let world = World {
+            objects: vec![sphere1, sphere2, Box::new(shape)],
+            ..Default::default()
+        };
+
+        let val = 2.0_f64.sqrt() / 2.;
+        let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
+        let intersection = &world.objects[2].arbitrary_intersection(2.0_f64.sqrt());
+        let comps = intersection.prepare_computations(&ray).unwrap();
+
+        let color = world.shade_hit(&comps).unwrap();
+
+        // ditto as in the above test about using modified values
+        // cf. book values: color(0.87677, 0.92436, 0.82918)
+        assert_eq!(color, Color::new(0.87675, 0.92434, 0.82917));
+    }
+
+    #[test]
+    fn color_at_with_mutually_reflective_surfaces() {
+        let material = Material {
+            color: Color::new(0.8, 1.0, 0.6),
+            diffuse: 0.7,
+            specular: 0.2,
+            ..Default::default()
+        };
+
+        let transformation = Matrix::scaling(0.5, 0.5, 0.5);
+
+        let sphere1 = Box::new(Sphere::new().with_material(material));
+        let sphere2 = Box::new(Sphere::new().with_transformation(transformation));
+
+        let light = PointLight::new(Tuple::point(0., 0., 0.), Color::new(1., 1., 1.));
+
+        let lower = Box::new(
+            Plane::new()
+                .with_material(Material {
+                    reflective: 1.,
+                    ..Default::default()
+                })
+                .with_transformation(Matrix::translation(0., -1., 0.)),
+        );
+        let upper = Box::new(
+            Plane::new()
+                .with_material(Material {
+                    reflective: 1.,
+                    ..Default::default()
+                })
+                .with_transformation(Matrix::translation(0., 1., 0.)),
+        );
+
+        let world = World::new(vec![sphere1, sphere2, lower, upper], Some(light));
+
+        let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 1., 0.));
+
+        // should terminate successfully without entering infinite recursion
+        let _ = world.color_at(&ray).unwrap();
     }
 }

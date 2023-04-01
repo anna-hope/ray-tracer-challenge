@@ -39,6 +39,7 @@ pub struct Computations<'a> {
     pub normal_vector: Tuple,
     pub inside: bool,
     pub over_point: Tuple,
+    pub reflect_vector: Tuple,
 }
 
 impl<'a> Debug for Computations<'a> {
@@ -51,6 +52,8 @@ impl<'a> Debug for Computations<'a> {
             .field("eye_vector", &self.eye_vector)
             .field("normal_vector", &self.normal_vector)
             .field("inside", &self.inside)
+            .field("over_point", &self.over_point)
+            .field("reflect_vector", &self.reflect_vector)
             .finish()
     }
 }
@@ -83,6 +86,7 @@ impl<'a> Intersection<'a> {
             (false, normal_vector)
         };
 
+        let reflect_vector = ray.direction.reflect(normal_vector)?;
         let over_point = point + normal_vector * EPSILON;
 
         Ok(Computations {
@@ -93,6 +97,7 @@ impl<'a> Intersection<'a> {
             normal_vector,
             inside,
             over_point,
+            reflect_vector,
         })
     }
 }
@@ -134,7 +139,10 @@ pub fn hit<'a>(intersections: &'a [Intersection]) -> Option<&'a Intersection<'a>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{shape::sphere::Sphere, EPSILON};
+    use crate::{
+        shape::{plane::Plane, sphere::Sphere},
+        EPSILON,
+    };
 
     #[test]
     fn create_and_query_ray() {
@@ -277,5 +285,15 @@ mod tests {
         let comps = intersection.prepare_computations(&ray).unwrap();
         assert!(comps.over_point.z < -EPSILON / 2.);
         assert!(comps.point.z > comps.over_point.z);
+    }
+
+    #[test]
+    fn precompute_reflection_vector() {
+        let shape = Plane::new();
+        let val = 2.0_f64.sqrt() / 2.;
+        let ray = Ray::new(Tuple::point(0., 1., -1.), Tuple::vector(0., -val, val));
+        let intersection = Intersection::new(2.0_f64.sqrt(), &shape);
+        let comps = intersection.prepare_computations(&ray).unwrap();
+        assert_eq!(comps.reflect_vector, Tuple::vector(0., val, val));
     }
 }

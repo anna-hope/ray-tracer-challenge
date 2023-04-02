@@ -80,41 +80,39 @@ impl Intersection {
         let reflect_vector = ray.direction.reflect(normal_vector)?;
         let over_point = point + normal_vector * EPSILON;
 
-        // I'm sorry for this
+        // I'm sorry for all this
         let mut containers: Vec<&Box<dyn Shape>> = vec![];
         let mut n1: Option<f64> = None;
         let mut n2: Option<f64> = None;
 
-        if let Some(hit) = hit(&intersections.clone()) {
-            for intersection in intersections {
-                if intersection == hit {
-                    if containers.is_empty() {
-                        n1 = Some(1.);
-                    } else {
-                        if let Some(object) = containers.last() {
-                            n1 = Some(object.material().refractive_index);
-                        }
-                    }
-                }
-
-                let object = &intersection.object;
-                if let Some(position) = containers.iter().position(|&x| x == object) {
-                    containers.remove(position);
+        for intersection in intersections {
+            if intersection == self {
+                if containers.is_empty() {
+                    n1 = Some(1.);
                 } else {
-                    containers.push(object);
-                }
-
-                if intersection == hit {
-                    if containers.is_empty() {
-                        n2 = Some(1.);
-                    } else {
-                        if let Some(object) = containers.last() {
-                            n2 = Some(object.material().refractive_index);
-                        }
+                    if let Some(object) = containers.last() {
+                        n1 = Some(object.material().refractive_index);
                     }
-
-                    break;
                 }
+            }
+
+            let object = &intersection.object;
+            if let Some(position) = containers.iter().position(|&x| x == object) {
+                containers.remove(position);
+            } else {
+                containers.push(object);
+            }
+
+            if intersection == self {
+                if containers.is_empty() {
+                    n2 = Some(1.);
+                } else {
+                    if let Some(object) = containers.last() {
+                        n2 = Some(object.material().refractive_index);
+                    }
+                }
+
+                break;
             }
         }
 

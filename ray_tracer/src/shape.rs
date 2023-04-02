@@ -73,7 +73,7 @@ impl PartialEq for dyn Shape {
 
 impl Debug for dyn Shape {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SceneObject")
+        f.debug_struct("Shape")
             .field("type", &self.shape_type())
             .field("id", &self.id())
             .finish()

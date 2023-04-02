@@ -13,8 +13,20 @@ pub enum ShapeType {
     Plane,
     TestShape,
 }
+pub trait ShapeClone {
+    fn clone_box(&self) -> Box<dyn Shape>;
+}
 
-pub trait Shape: Intersect + Send + Sync {
+impl<T> ShapeClone for T
+where
+    T: 'static + Shape + Clone,
+{
+    fn clone_box(&self) -> Box<dyn Shape> {
+        Box::new(self.clone())
+    }
+}
+
+pub trait Shape: Intersect + Send + Sync + ShapeClone {
     /// Computes the normal vector at the world point.
     fn normal_at(&self, point: Tuple) -> Result<Tuple> {
         let transformation_inverse = self.transformation().inverse()?;
@@ -65,6 +77,12 @@ impl Debug for dyn Shape {
             .field("type", &self.shape_type())
             .field("id", &self.id())
             .finish()
+    }
+}
+
+impl Clone for Box<dyn Shape> {
+    fn clone(&self) -> Self {
+        self.clone_box()
     }
 }
 
@@ -148,8 +166,8 @@ pub mod sphere {
             let t1 = (-b - discriminant.sqrt()) / (2. * a);
             let t2 = (-b + discriminant.sqrt()) / (2. * a);
 
-            let i1 = Intersection::new(t1, self);
-            let i2 = Intersection::new(t2, self);
+            let i1 = Intersection::new(t1, Box::new(self.to_owned()));
+            let i2 = Intersection::new(t2, Box::new(self.to_owned()));
             Ok(vec![i1, i2])
         }
     }
@@ -175,7 +193,10 @@ pub mod sphere {
         }
 
         fn arbitrary_intersection(&self, t: f64) -> Intersection {
-            Intersection { t, object: self }
+            Intersection {
+                t,
+                object: Box::new(self.to_owned()),
+            }
         }
 
         fn set_material(&mut self, material: Material) {
@@ -368,6 +389,7 @@ pub mod plane {
 
     use super::*;
 
+    #[derive(Debug, Clone)]
     pub struct Plane {
         id: usize,
         transformation: Matrix,
@@ -393,7 +415,7 @@ pub mod plane {
             }
 
             let t = -ray.origin.y / ray.direction.y;
-            vec![Intersection::new(t, self)]
+            vec![Intersection::new(t, Box::new(self.to_owned()))]
         }
 
         pub fn with_transformation(mut self, transformation: Matrix) -> Self {
@@ -422,7 +444,10 @@ pub mod plane {
 
     impl Shape for Plane {
         fn arbitrary_intersection(&self, t: f64) -> Intersection {
-            Intersection { t, object: self }
+            Intersection {
+                t,
+                object: Box::new(self.to_owned()),
+            }
         }
 
         fn transformation(&self) -> Matrix {
@@ -513,7 +538,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct TestShape {
         transformation: Matrix,
         material: Material,

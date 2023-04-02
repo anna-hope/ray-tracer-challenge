@@ -31,7 +31,7 @@ impl World {
         if let Some(light) = self.light {
             let in_shadow = self.is_shadowed(comps.over_point)?;
             let surface_color = comps.object.material().lighting(
-                comps.object,
+                comps.object.clone(),
                 light,
                 comps.over_point,
                 comps.eye_vector,
@@ -52,7 +52,7 @@ impl World {
     pub fn color_at(&self, ray: &Ray) -> Result<Color> {
         let xs = self.intersect(ray)?;
         if let Some(hit) = hit(&xs) {
-            let comps = hit.prepare_computations(ray)?;
+            let comps = hit.prepare_computations(ray, &xs)?;
             Ok(self.shade_hit(&comps)?)
         } else {
             Ok(Color::default())
@@ -195,7 +195,9 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let shape = &world.objects[0];
         let intersection = shape.arbitrary_intersection(4.);
-        let comps = intersection.prepare_computations(&ray).unwrap();
+        let comps = intersection
+            .prepare_computations(&ray, &[intersection.to_owned()])
+            .unwrap();
         let color = world.shade_hit(&comps).unwrap();
         assert_eq!(color, Color::new(0.38066, 0.47583, 0.2855));
     }
@@ -210,7 +212,9 @@ mod tests {
 
         let shape = &world.objects[1];
         let intersection = shape.arbitrary_intersection(0.5);
-        let comps = intersection.prepare_computations(&ray).unwrap();
+        let comps = intersection
+            .prepare_computations(&ray, &[intersection.to_owned()])
+            .unwrap();
         let color = world.shade_hit(&comps).unwrap();
 
         let val = 0.90498;
@@ -220,16 +224,19 @@ mod tests {
     #[test]
     fn shade_hit_is_given_intersection_in_shadow() {
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
-        let sphere1 = Sphere::default();
-        let sphere2 = Sphere::default().with_transformation(Matrix::translation(0., 0., 10.));
+        let sphere1 = Box::new(Sphere::default());
+        let sphere2 =
+            Box::new(Sphere::default().with_transformation(Matrix::translation(0., 0., 10.)));
         let world = World {
             light: Some(light),
-            objects: vec![Box::new(sphere1), Box::new(sphere2.clone())],
+            objects: vec![sphere1.clone(), sphere2.clone()],
         };
 
         let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
-        let intersection = Intersection::new(4., &sphere2);
-        let comps = intersection.prepare_computations(&ray).unwrap();
+        let intersection = Intersection::new(4., sphere2);
+        let comps = intersection
+            .prepare_computations(&ray, &[intersection.to_owned()])
+            .unwrap();
         let color = world.shade_hit(&comps).unwrap();
         assert_eq!(color, Color::new(0.1, 0.1, 0.1));
     }
@@ -332,7 +339,9 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
 
         let intersection = &world.objects[1].arbitrary_intersection(1.);
-        let comps = intersection.prepare_computations(&ray).unwrap();
+        let comps = intersection
+            .prepare_computations(&ray, &[intersection.to_owned()])
+            .unwrap();
         let color = world.reflected_color(&comps).unwrap();
         assert_eq!(color, Color::black());
     }
@@ -366,7 +375,9 @@ mod tests {
         let val = 2.0_f64.sqrt() / 2.;
         let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
         let intersection = &world.objects[2].arbitrary_intersection(2.0_f64.sqrt());
-        let comps = intersection.prepare_computations(&ray).unwrap();
+        let comps = intersection
+            .prepare_computations(&ray, &[intersection.to_owned()])
+            .unwrap();
 
         let color = world.reflected_color(&comps).unwrap();
 
@@ -407,7 +418,9 @@ mod tests {
         let val = 2.0_f64.sqrt() / 2.;
         let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
         let intersection = &world.objects[2].arbitrary_intersection(2.0_f64.sqrt());
-        let comps = intersection.prepare_computations(&ray).unwrap();
+        let comps = intersection
+            .prepare_computations(&ray, &[intersection.to_owned()])
+            .unwrap();
 
         let color = world.shade_hit(&comps).unwrap();
 

@@ -121,10 +121,8 @@ impl Intersection {
             if intersection == self {
                 if containers.is_empty() {
                     n1 = Some(1.);
-                } else {
-                    if let Some(object) = containers.last() {
-                        n1 = Some(object.material().refractive_index);
-                    }
+                } else if let Some(object) = containers.last() {
+                    n1 = Some(object.material().refractive_index);
                 }
             }
 
@@ -138,10 +136,8 @@ impl Intersection {
             if intersection == self {
                 if containers.is_empty() {
                     n2 = Some(1.);
-                } else {
-                    if let Some(object) = containers.last() {
-                        n2 = Some(object.material().refractive_index);
-                    }
+                } else if let Some(object) = containers.last() {
+                    n2 = Some(object.material().refractive_index);
                 }
 
                 break;
@@ -240,7 +236,7 @@ mod tests {
         let sphere = Sphere::default();
         let i1 = Intersection::new(1., Box::new(sphere.clone()));
         let i2 = Intersection::new(2., Box::new(sphere));
-        let xs = &[i1.clone(), i2.clone()];
+        let xs = &[i1.clone(), i2];
         let intersection = hit(xs).unwrap();
         assert_eq!(intersection, &i1);
     }
@@ -249,15 +245,15 @@ mod tests {
     fn hit_some_intersections_have_negative_t() {
         let sphere = Sphere::default();
         let i1 = Intersection::new(-1., Box::new(sphere.clone()));
-        let i2 = Intersection::new(1., Box::new(sphere.clone()));
-        let xs = &[i1.clone(), i2.clone()];
+        let i2 = Intersection::new(1., Box::new(sphere));
+        let xs = &[i1, i2.clone()];
         let intersection = hit(xs).unwrap();
         assert_eq!(intersection, &i2);
     }
 
     #[test]
     fn hit_all_intersections_have_negative_t() {
-        let sphere = Box::new(Sphere::default());
+        let sphere = Box::<Sphere>::default();
         let i1 = Intersection::new(-2., sphere.clone());
         let i2 = Intersection::new(-1., sphere);
         let xs = &[i1, i2];
@@ -267,12 +263,12 @@ mod tests {
 
     #[test]
     fn hit_is_always_lowest_nonnegative_intersection() {
-        let sphere = Box::new(Sphere::default());
+        let sphere = Box::<Sphere>::default();
         let i1 = Intersection::new(5., sphere.clone());
         let i2 = Intersection::new(7., sphere.clone());
         let i3 = Intersection::new(-3., sphere.clone());
         let i4 = Intersection::new(2., sphere);
-        let xs = &[i1.clone(), i2.clone(), i3.clone(), i4.clone()];
+        let xs = &[i1, i2, i3, i4.clone()];
         let intersection = hit(xs).unwrap();
         assert_eq!(intersection, &i4);
     }
@@ -298,7 +294,7 @@ mod tests {
     #[test]
     fn precompute_state_of_intersection() {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let shape = Box::new(Sphere::default());
+        let shape = Box::<Sphere>::default();
         let intersection = Intersection::new(4., shape);
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
@@ -314,7 +310,7 @@ mod tests {
     #[test]
     fn hit_when_intersection_outside() {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let shape = Box::new(Sphere::default());
+        let shape = Box::<Sphere>::default();
         let intersection = Intersection::new(4., shape);
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
@@ -325,7 +321,7 @@ mod tests {
     #[test]
     fn hit_when_intersection_inside() {
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
-        let shape = Box::new(Sphere::default());
+        let shape = Box::<Sphere>::default();
         let intersection = Intersection::new(1., shape);
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
@@ -418,7 +414,7 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., val), Tuple::vector(0., 1., 0.));
         let xs = &[
             Intersection::new(-val, shape.clone()),
-            Intersection::new(val, shape.clone()),
+            Intersection::new(val, shape),
         ];
         let comps = xs[1].prepare_computations(&ray, xs).unwrap();
         let reflectance = comps.schlick().unwrap();
@@ -431,7 +427,7 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 1., 0.));
         let xs = &[
             Intersection::new(-1., shape.clone()),
-            Intersection::new(1., shape.clone()),
+            Intersection::new(1., shape),
         ];
         let comps = xs[1].prepare_computations(&ray, xs).unwrap();
         let reflectance = comps.schlick().unwrap();

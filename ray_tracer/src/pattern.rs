@@ -174,9 +174,9 @@ pub mod stripe {
 
         #[test]
         fn stripes_with_pattern_transformation() {
-            let object = Box::new(Sphere::default());
+            let object = Box::<Sphere>::default();
             let pattern = StripePattern {
-                a: Box::new(SolidPattern::default()),
+                a: Box::<SolidPattern>::default(),
                 b: Box::new(SolidPattern::new(Color::black())),
                 transformation: Matrix::scaling(2., 2., 2.),
             };
@@ -706,7 +706,7 @@ pub mod tests {
     #[test]
     fn test_pattern() {
         // erase the type in order to test the trait object
-        let test_pattern: Box<dyn Pattern> = Box::new(TestPattern::default());
+        let test_pattern: Box<dyn Pattern> = Box::<TestPattern>::default();
         assert_eq!(test_pattern.transformation(), Matrix::identity());
     }
 
@@ -723,7 +723,7 @@ pub mod tests {
     #[test]
     fn pattern_with_object_transformation() {
         let shape = Box::new(Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.)));
-        let pattern: Box<dyn Pattern> = Box::new(TestPattern::default());
+        let pattern: Box<dyn Pattern> = Box::<TestPattern>::default();
         let color = pattern
             .pattern_at_shape(shape, Tuple::point(2., 3., 4.))
             .unwrap();
@@ -732,7 +732,7 @@ pub mod tests {
 
     #[test]
     fn pattern_with_pattern_transformation() {
-        let shape = Box::new(Sphere::default());
+        let shape = Box::<Sphere>::default();
         let pattern: Box<dyn Pattern> =
             Box::new(TestPattern::default().with_transformation(Matrix::scaling(2., 2., 2.)));
         let color = pattern

@@ -220,8 +220,8 @@ mod tests {
         let boxed_sphere2: Box<dyn Shape> = Box::new(sphere2.clone());
         world.objects = vec![boxed_sphere1, boxed_sphere2];
 
-        let boxed_sphere1: Box<dyn Shape> = Box::new(sphere1.clone());
-        let boxed_sphere2: Box<dyn Shape> = Box::new(sphere2.clone());
+        let boxed_sphere1: Box<dyn Shape> = Box::new(sphere1);
+        let boxed_sphere2: Box<dyn Shape> = Box::new(sphere2);
         assert!(world.objects.contains(&boxed_sphere1));
         assert!(world.objects.contains(&boxed_sphere2));
     }
@@ -273,12 +273,12 @@ mod tests {
     #[test]
     fn shade_hit_is_given_intersection_in_shadow() {
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
-        let sphere1 = Box::new(Sphere::default());
+        let sphere1 = Box::<Sphere>::default();
         let sphere2 =
             Box::new(Sphere::default().with_transformation(Matrix::translation(0., 0., 10.)));
         let world = World {
             light: Some(light),
-            objects: vec![sphere1.clone(), sphere2.clone()],
+            objects: vec![sphere1, sphere2.clone()],
         };
 
         let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
@@ -586,7 +586,7 @@ mod tests {
             let a = &mut world.objects[0];
             let mut a_material = a.material();
             a_material.ambient = 1.;
-            a_material.pattern = Some(Box::new(pattern::tests::TestPattern::default()));
+            a_material.pattern = Some(Box::<pattern::tests::TestPattern>::default());
             a.set_material(a_material);
         }
 

@@ -125,7 +125,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
-        let object = Box::new(Sphere::default());
+        let object = Box::<Sphere>::default();
         let result = material
             .lighting(object, light, position, eye_vector, normal_vector, false)
             .unwrap();
@@ -140,7 +140,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., val, -val);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
-        let object = Box::new(Sphere::default());
+        let object = Box::<Sphere>::default();
         let result = material
             .lighting(object, light, position, eye_vector, normal_vector, false)
             .unwrap();
@@ -154,7 +154,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 10., -10.), Color::white());
-        let object = Box::new(Sphere::default());
+        let object = Box::<Sphere>::default();
         let result = material
             .lighting(object, light, position, eye_vector, normal_vector, false)
             .unwrap();
@@ -170,7 +170,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., -val, -val);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 10., -10.), Color::white());
-        let object = Box::new(Sphere::default());
+        let object = Box::<Sphere>::default();
         let result = material
             .lighting(object, light, position, eye_vector, normal_vector, false)
             .unwrap();
@@ -185,7 +185,7 @@ mod tests {
         let eye_vector = Tuple::vector(0., 0., -1.);
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., 10.), Color::white());
-        let object = Box::new(Sphere::default());
+        let object = Box::<Sphere>::default();
         let result = material
             .lighting(object, light, position, eye_vector, normal_vector, false)
             .unwrap();
@@ -200,7 +200,7 @@ mod tests {
         let normal_vector = Tuple::vector(0., 0., -1.);
         let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
         let in_shadow = true;
-        let object = Box::new(Sphere::default());
+        let object = Box::<Sphere>::default();
         let result = material
             .lighting(
                 object,
@@ -220,7 +220,7 @@ mod tests {
             ambient: 1.,
             diffuse: 0.,
             specular: 0.,
-            pattern: Some(Box::new(StripePattern::default())),
+            pattern: Some(Box::<StripePattern>::default()),
             ..Default::default()
         };
 
@@ -241,7 +241,7 @@ mod tests {
 
         let color2 = material
             .lighting(
-                Box::new(shape.clone()),
+                Box::new(shape),
                 light,
                 Tuple::point(1.1, 0., 0.),
                 eye_vector,

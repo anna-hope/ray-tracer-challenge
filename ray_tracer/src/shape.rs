@@ -207,7 +207,7 @@ pub mod sphere {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use std::f64::consts::PI;
+        use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
         #[test]
         fn two_spheres_have_different_ids() {
@@ -346,9 +346,9 @@ pub mod sphere {
         fn compute_normal_translated_sphere() {
             let sphere = Sphere::default().with_transformation(Matrix::translation(0., 1., 0.));
             let normal = sphere
-                .normal_at(Tuple::point(0., 1.70711, -0.70711))
+                .normal_at(Tuple::point(0., 1.70711, -FRAC_1_SQRT_2))
                 .unwrap();
-            assert_eq!(normal, Tuple::vector(0., 0.70711, -0.70711));
+            assert_eq!(normal, Tuple::vector(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
         }
 
         #[test]
@@ -368,8 +368,10 @@ pub mod sphere {
 
         #[test]
         fn sphere_may_be_assigned_material() {
-            let mut material = Material::default();
-            material.ambient = 1.;
+            let material = Material {
+                ambient: 1.,
+                ..Default::default()
+            };
             let sphere = Sphere::default().with_material(material.clone());
             assert_eq!(sphere.material, material);
         }
@@ -534,7 +536,7 @@ pub mod plane {
 #[cfg(test)]
 mod tests {
 
-    use std::f64::consts::PI;
+    use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
     use super::*;
 
@@ -632,9 +634,9 @@ mod tests {
     fn compute_normal_on_translated_shape() {
         let shape = TestShape::new().with_transformation(Matrix::translation(0., 1., 0.));
         let normal = shape
-            .normal_at(Tuple::point(0., 1.70711, -0.70711))
+            .normal_at(Tuple::point(0., 1.70711, -FRAC_1_SQRT_2))
             .unwrap();
-        assert_eq!(normal, Tuple::vector(0., 0.70711, -0.70711));
+        assert_eq!(normal, Tuple::vector(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
     }
 
     #[test]

@@ -31,7 +31,7 @@ pub trait Intersect {
     fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Computations {
     pub t: f64,
     pub object: Box<dyn Shape>,
@@ -44,6 +44,37 @@ pub struct Computations {
     pub n1: Option<f64>,
     pub n2: Option<f64>,
     pub under_point: Tuple,
+}
+
+impl Computations {
+    /// Computes the Schlick approximation for Fresnel effect
+    /// (i.e. reflection value for transparent surfaces).
+    /// Returns 0.0 if either of Computations.n1 and Computations.n2 is None.
+    pub fn schlick(&self) -> Result<f64> {
+        if let (Some(n1), Some(n2)) = (self.n1, self.n2) {
+            // find the cosine of the angle between the eye and the normal vectors
+            let mut cos = self.eye_vector.dot(&self.normal_vector)?;
+
+            if n1 > n2 {
+                let n = n1 / n2;
+                let sin2_t = n.powi(2) * (1. - cos.powi(2));
+                if sin2_t > 1. {
+                    return Ok(1.);
+                }
+
+                // compute cosine of theta_t using trig identity
+                let cos_t = (1. - sin2_t).sqrt();
+
+                // when n1 > n2, use cos(theta_t) instead
+                cos = cos_t;
+            }
+
+            let r0 = ((n1 - n2) / (n1 + n2)).powi(2);
+            return Ok(r0 + (1. - r0) * (1. - cos).powi(5));
+        }
+
+        Ok(0.)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -161,6 +192,7 @@ pub fn hit(intersections: &[Intersection]) -> Option<&Intersection> {
 mod tests {
     use super::*;
     use crate::{
+        equal,
         shape::{plane::Plane, sphere::Sphere},
         EPSILON,
     };
@@ -320,7 +352,7 @@ mod tests {
     #[test]
     fn precompute_reflection_vector() {
         let shape = Box::new(Plane::new());
-        let val = 2.0_f64.sqrt() / 2.;
+        let val = 2.0_f64 / 2.;
         let ray = Ray::new(Tuple::point(0., 1., -1.), Tuple::vector(0., -val, val));
         let intersection = Intersection::new(2.0_f64.sqrt(), shape);
         let comps = intersection
@@ -377,5 +409,42 @@ mod tests {
         let comps = intersection.prepare_computations(&ray, &xs).unwrap();
         assert!(comps.under_point.z > EPSILON / 2.);
         assert!(comps.point.z < comps.under_point.z);
+    }
+
+    #[test]
+    fn schlick_approximation_under_total_internal_reflection() {
+        let shape = Box::new(Sphere::glass());
+        let val = 2.0_f64 / 2.;
+        let ray = Ray::new(Tuple::point(0., 0., val), Tuple::vector(0., 1., 0.));
+        let xs = &[
+            Intersection::new(-val, shape.clone()),
+            Intersection::new(val, shape.clone()),
+        ];
+        let comps = xs[1].prepare_computations(&ray, xs).unwrap();
+        let reflectance = comps.schlick().unwrap();
+        assert_eq!(reflectance, 1.);
+    }
+
+    #[test]
+    fn schlick_approximation_with_perpendicular_viewing_angle() {
+        let shape = Box::new(Sphere::glass());
+        let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 1., 0.));
+        let xs = &[
+            Intersection::new(-1., shape.clone()),
+            Intersection::new(1., shape.clone()),
+        ];
+        let comps = xs[1].prepare_computations(&ray, xs).unwrap();
+        let reflectance = comps.schlick().unwrap();
+        assert!(equal(reflectance, 0.04));
+    }
+
+    #[test]
+    fn schlick_approximation_with_small_angle_and_n2_gt_n1() {
+        let shape = Box::new(Sphere::glass());
+        let ray = Ray::new(Tuple::point(0., 0.99, -2.), Tuple::vector(0., 0., 1.));
+        let xs = &[Intersection::new(1.8589, shape)];
+        let comps = xs[0].prepare_computations(&ray, xs).unwrap();
+        let reflectance = comps.schlick().unwrap();
+        assert!(equal(reflectance, 0.48873));
     }
 }

@@ -42,7 +42,15 @@ impl World {
             let reflected_color = self.reflected_color(comps)?;
             let refracted_color = self.refracted_color(comps, 5)?;
 
-            Ok(surface_color + reflected_color + refracted_color)
+            let material = comps.object.material();
+            if material.reflective > 0. && material.transparency > 0. {
+                let reflectance = comps.schlick()?;
+                Ok(surface_color
+                    + reflected_color * reflectance
+                    + refracted_color * (1. - reflectance))
+            } else {
+                Ok(surface_color + reflected_color + refracted_color)
+            }
         } else {
             Ok(Color::default())
         }
@@ -98,36 +106,34 @@ impl World {
 
         // find the ratio of first index of refraction to the second
         // (this is inverted from the definition of Snell's law)
-        if let Some(n1) = comps.n1 {
-            if let Some(n2) = comps.n2 {
-                let n_ratio = n1 / n2;
+        if let (Some(n1), Some(n2)) = (comps.n1, comps.n2) {
+            let n_ratio = n1 / n2;
 
-                // cos(theta_i) is the same as the dot product of the two vectors
-                let cos_i = comps.eye_vector.dot(&comps.normal_vector)?;
+            // cos(theta_i) is the same as the dot product of the two vectors
+            let cos_i = comps.eye_vector.dot(&comps.normal_vector)?;
 
-                // find sin(theta_t)^2 via trigonometric identity
-                let sin2_t = n_ratio.powi(2) * (1. - cos_i.powi(2));
+            // find sin(theta_t)^2 via trigonometric identity
+            let sin2_t = n_ratio.powi(2) * (1. - cos_i.powi(2));
 
-                if sin2_t > 1. {
-                    return Ok(Color::black());
-                }
-
-                // find cos(theta_t) via trigonometric identity
-                let cos_t = (1. - sin2_t).sqrt();
-
-                // compute the direction of the refracted ray
-                let direction =
-                    comps.normal_vector * (n_ratio * cos_i - cos_t) - comps.eye_vector * n_ratio;
-
-                // create the refracted ray
-                let refracted_ray = Ray::new(comps.under_point, direction);
-
-                // find the color of the refracted ray,
-                // making sure to multiply by the transparency value
-                // to account fo any opacity
-                let color = self.color_at(&refracted_ray)? * comps.object.material().transparency;
-                return Ok(color);
+            if sin2_t > 1. {
+                return Ok(Color::black());
             }
+
+            // find cos(theta_t) via trigonometric identity
+            let cos_t = (1. - sin2_t).sqrt();
+
+            // compute the direction of the refracted ray
+            let direction =
+                comps.normal_vector * (n_ratio * cos_i - cos_t) - comps.eye_vector * n_ratio;
+
+            // create the refracted ray
+            let refracted_ray = Ray::new(comps.under_point, direction);
+
+            // find the color of the refracted ray,
+            // making sure to multiply by the transparency value
+            // to account fo any opacity
+            let color = self.color_at(&refracted_ray)? * comps.object.material().transparency;
+            return Ok(color);
         }
 
         Ok(Color::white())
@@ -639,5 +645,39 @@ mod tests {
         let comps = xs[0].prepare_computations(&ray, xs).unwrap();
         let color = world.shade_hit(&comps).unwrap();
         assert_eq!(color, Color::new(0.93642, 0.68642, 0.68642));
+    }
+
+    #[test]
+    fn shade_hit_with_reflective_transparent_material() {
+        let mut world = World::default();
+
+        let floor = Plane::new()
+            .with_transformation(Matrix::translation(0., -1., 0.))
+            .with_material(Material {
+                reflective: 0.5,
+                transparency: 0.5,
+                refractive_index: 1.5,
+                ..Default::default()
+            });
+        world.objects.push(Box::new(floor.clone()));
+
+        let ball = Sphere::new(
+            Matrix::translation(0., -3.5, -0.5),
+            Material {
+                color: Color::new(1., 0., 0.),
+                ambient: 0.5,
+                ..Default::default()
+            },
+        );
+        world.objects.push(Box::new(ball));
+
+        let val = 2.0_f64.sqrt() / 2.;
+        let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
+
+        let xs = &[Intersection::new(2.0_f64.sqrt(), Box::new(floor))];
+        let comps = xs[0].prepare_computations(&ray, xs).unwrap();
+        let color = world.shade_hit(&comps).unwrap();
+
+        assert_eq!(color, Color::new(0.93391, 0.69643, 0.69243));
     }
 }

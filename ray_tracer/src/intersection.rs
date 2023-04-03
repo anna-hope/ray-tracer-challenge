@@ -43,6 +43,7 @@ pub struct Computations {
     pub reflect_vector: Tuple,
     pub n1: Option<f64>,
     pub n2: Option<f64>,
+    pub under_point: Tuple,
 }
 
 #[derive(Clone, Debug)]
@@ -79,8 +80,8 @@ impl Intersection {
 
         let reflect_vector = ray.direction.reflect(normal_vector)?;
         let over_point = point + normal_vector * EPSILON;
+        let under_point = point - normal_vector * EPSILON;
 
-        // I'm sorry for all this
         let mut containers: Vec<&Box<dyn Shape>> = vec![];
         let mut n1: Option<f64> = None;
         let mut n2: Option<f64> = None;
@@ -127,6 +128,7 @@ impl Intersection {
             reflect_vector,
             n1,
             n2,
+            under_point,
         })
     }
 }
@@ -138,16 +140,6 @@ impl PartialEq for Intersection {
             && self.object.shape_type() == other.object.shape_type()
     }
 }
-
-// impl<'a> Debug for Intersection<'a> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.debug_struct("Intersection")
-//             .field("t", &self.t)
-//             .field("object type", &self.object.shape_type())
-//             .field("object id", &self.object.id())
-//             .finish()
-//     }
-// }
 
 /// Finds the intersection that hits the object.
 /// Always picks the lowest non-negative intersection (intersection with the smallest t > 0).
@@ -374,5 +366,16 @@ mod tests {
             assert_eq!(comps.n1, Some(n1));
             assert_eq!(comps.n2, Some(n2));
         }
+    }
+
+    #[test]
+    fn under_point_is_offset_below_surface() {
+        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let shape = Sphere::glass().with_transformation(Matrix::translation(0., 0., 1.));
+        let intersection = Intersection::new(5., Box::new(shape));
+        let xs = [intersection.clone()];
+        let comps = intersection.prepare_computations(&ray, &xs).unwrap();
+        assert!(comps.under_point.z > EPSILON / 2.);
+        assert!(comps.point.z < comps.under_point.z);
     }
 }

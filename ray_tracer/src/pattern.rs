@@ -661,15 +661,16 @@ pub mod perturbed {
     }
 }
 
+// this has to be pub because we use the TestPattern in tests for world.rs
 #[cfg(test)]
-mod tests {
+pub mod tests {
 
     use crate::shape::sphere::Sphere;
 
     use super::*;
 
     #[derive(Clone)]
-    struct TestPattern {
+    pub struct TestPattern {
         transformation: Matrix,
     }
 

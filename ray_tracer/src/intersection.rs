@@ -31,10 +31,10 @@ pub trait Intersect {
     fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>>;
 }
 
-#[derive(Debug, Clone)]
-pub struct Computations {
+#[derive(Clone)]
+pub struct Computations<'a> {
     pub t: f64,
-    pub object: Box<dyn Shape>,
+    pub object: &'a dyn Shape,
     pub point: Tuple,
     pub eye_vector: Tuple,
     pub normal_vector: Tuple,
@@ -46,7 +46,7 @@ pub struct Computations {
     pub under_point: Tuple,
 }
 
-impl Computations {
+impl<'a> Computations<'a> {
     /// Computes the Schlick approximation for Fresnel effect
     /// (i.e. reflection value for transparent surfaces).
     /// Returns 0.0 if either of Computations.n1 and Computations.n2 is None.
@@ -151,7 +151,7 @@ impl Intersection {
 
         Ok(Computations {
             t: self.t,
-            object: self.object.clone(),
+            object: &*self.object,
             point,
             eye_vector,
             normal_vector,

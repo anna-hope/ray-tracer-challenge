@@ -22,7 +22,7 @@ pub trait Pattern: PatternClone + Send + Sync {
     fn transformation(&self) -> Matrix;
 
     /// Converts a world point into a color for the given shape.
-    fn pattern_at_shape(&self, shape: Box<dyn Shape>, world_point: Tuple) -> Result<Color> {
+    fn pattern_at_shape(&self, shape: &dyn Shape, world_point: Tuple) -> Result<Color> {
         // convert the world point to object space
         let object_point = shape.transformation().inverse()? * world_point;
 
@@ -163,38 +163,36 @@ pub mod stripe {
 
         #[test]
         fn stripes_with_object_transformation() {
-            let object =
-                Box::new(Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.)));
+            let object = Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.));
             let pattern = StripePattern::default();
             let color = pattern
-                .pattern_at_shape(object, Tuple::point(1.5, 0., 0.))
+                .pattern_at_shape(&object, Tuple::point(1.5, 0., 0.))
                 .unwrap();
             assert_eq!(color, Color::white());
         }
 
         #[test]
         fn stripes_with_pattern_transformation() {
-            let object = Box::<Sphere>::default();
+            let object = Sphere::default();
             let pattern = StripePattern {
                 a: Box::<SolidPattern>::default(),
                 b: Box::new(SolidPattern::new(Color::black())),
                 transformation: Matrix::scaling(2., 2., 2.),
             };
             let color = pattern
-                .pattern_at_shape(object, Tuple::point(1.5, 0., 0.))
+                .pattern_at_shape(&object, Tuple::point(1.5, 0., 0.))
                 .unwrap();
             assert_eq!(color, Color::white());
         }
 
         #[test]
         fn stripes_with_both_object_and_pattern_transformation() {
-            let object =
-                Box::new(Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.)));
+            let object = Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.));
             let pattern =
                 StripePattern::default().with_transformation(Matrix::translation(0.5, 0., 0.));
 
             let color = pattern
-                .pattern_at_shape(object, Tuple::point(2.5, 0., 0.))
+                .pattern_at_shape(&object, Tuple::point(2.5, 0., 0.))
                 .unwrap();
             assert_eq!(color, Color::white());
         }
@@ -555,7 +553,7 @@ pub mod solid {
         }
 
         /// Always returns the same color, regardless of the shape or point.
-        fn pattern_at_shape(&self, _shape: Box<dyn Shape>, _world_point: Tuple) -> Result<Color> {
+        fn pattern_at_shape(&self, _shape: &dyn Shape, _world_point: Tuple) -> Result<Color> {
             Ok(self.color)
         }
     }
@@ -722,32 +720,32 @@ pub mod tests {
 
     #[test]
     fn pattern_with_object_transformation() {
-        let shape = Box::new(Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.)));
+        let shape = Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.));
         let pattern: Box<dyn Pattern> = Box::<TestPattern>::default();
         let color = pattern
-            .pattern_at_shape(shape, Tuple::point(2., 3., 4.))
+            .pattern_at_shape(&shape, Tuple::point(2., 3., 4.))
             .unwrap();
         assert_eq!(color, Color::new(1., 1.5, 2.));
     }
 
     #[test]
     fn pattern_with_pattern_transformation() {
-        let shape = Box::<Sphere>::default();
+        let shape = Sphere::default();
         let pattern: Box<dyn Pattern> =
             Box::new(TestPattern::default().with_transformation(Matrix::scaling(2., 2., 2.)));
         let color = pattern
-            .pattern_at_shape(shape, Tuple::point(2., 3., 4.))
+            .pattern_at_shape(&shape, Tuple::point(2., 3., 4.))
             .unwrap();
         assert_eq!(color, Color::new(1., 1.5, 2.));
     }
 
     #[test]
     fn pattern_with_both_object_and_pattern_transformation() {
-        let shape = Box::new(Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.)));
+        let shape = Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.));
         let pattern: Box<dyn Pattern> =
             Box::new(TestPattern::default().with_transformation(Matrix::translation(0.5, 1., 1.5)));
         let color = pattern
-            .pattern_at_shape(shape, Tuple::point(2.5, 3., 3.5))
+            .pattern_at_shape(&shape, Tuple::point(2.5, 3., 3.5))
             .unwrap();
         assert_eq!(color, Color::new(0.75, 0.5, 0.25));
     }

@@ -31,7 +31,7 @@ impl World {
         if let Some(light) = self.light {
             let in_shadow = self.is_shadowed(comps.over_point)?;
             let surface_color = comps.object.material().lighting(
-                comps.object.clone(),
+                comps.object,
                 light,
                 comps.over_point,
                 comps.eye_vector,

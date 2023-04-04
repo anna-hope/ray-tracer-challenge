@@ -5,7 +5,7 @@ use ray_tracer::{
     color::Color,
     light::PointLight,
     material::Material,
-    pattern,
+    pattern::*,
     shape::{plane::Plane, sphere::Sphere},
     transformation,
     world::World,
@@ -13,47 +13,41 @@ use ray_tracer::{
 };
 
 fn main() {
-    let solid_pattern1 = Box::new(pattern::solid::SolidPattern::new(Color::new(0.8, 0.8, 1.0)));
-    let solid_pattern2 = Box::new(pattern::solid::SolidPattern::new(Color::from_rgb(
-        32, 178, 170,
-    )));
+    let solid_pattern1 = Box::new(solid::SolidPattern::new(Color::new(0.8, 0.8, 1.0)));
+    let solid_pattern2 = Box::new(solid::SolidPattern::new(Color::from_rgb(32, 178, 170)));
 
     let blended_pattern1 =
-        pattern::blended::BlendedPattern::new(solid_pattern1, solid_pattern2, Matrix::identity());
+        blended::BlendedPattern::new(solid_pattern1, solid_pattern2, Matrix::identity());
 
-    let solid_pattern1 = Box::new(pattern::solid::SolidPattern::new(Color::from_rgb(
-        100, 40, 77,
-    )));
-    let solid_pattern2 = Box::new(pattern::solid::SolidPattern::new(Color::from_rgb(
-        7, 200, 90,
-    )));
+    let solid_pattern1 = Box::new(solid::SolidPattern::new(Color::from_rgb(100, 40, 77)));
+    let solid_pattern2 = Box::new(solid::SolidPattern::new(Color::from_rgb(7, 200, 90)));
 
     let blended_pattern2 =
-        pattern::blended::BlendedPattern::new(solid_pattern1, solid_pattern2, Matrix::identity());
+        blended::BlendedPattern::new(solid_pattern1, solid_pattern2, Matrix::identity());
 
-    let floor_pattern1 = pattern::checker::CheckerPattern::new(
+    let floor_pattern1 = checker::CheckerPattern::new(
         Box::new(blended_pattern1),
         Box::new(blended_pattern2),
         Matrix::identity(),
     );
 
-    let solid_pattern1 = pattern::solid::SolidPattern::new(Color::from_rgb(100, 200, 50));
-    let solid_pattern2 = pattern::solid::SolidPattern::new(Color::from_rgb(13, 5, 70));
+    let solid_pattern1 = solid::SolidPattern::new(Color::from_rgb(100, 200, 50));
+    let solid_pattern2 = solid::SolidPattern::new(Color::from_rgb(13, 5, 70));
 
-    let floor_pattern2 = pattern::checker::CheckerPattern::new(
+    let floor_pattern2 = checker::CheckerPattern::new(
         Box::new(solid_pattern1),
         Box::new(solid_pattern2),
         Matrix::identity(),
     );
 
-    let floor_pattern = pattern::checker::CheckerPattern {
+    let floor_pattern = checker::CheckerPattern {
         a: Box::new(floor_pattern1),
         b: Box::new(floor_pattern2),
-        ..Default::default() // transformation: Matrix::scaling(3., 3., 3.),
+        ..Default::default()
     };
     let floor_material = Material {
         pattern: Some(Box::new(floor_pattern)),
-        reflective: 0.6,
+        reflectivity: 0.6,
         ..Default::default()
     };
     let floor = Plane::new()
@@ -62,7 +56,7 @@ fn main() {
 
     let wall_transformation = Matrix::identity().rotate_x(PI / 2.).translate(0., 0., 3.);
     let wall_material = Material {
-        reflective: 1.,
+        reflectivity: 1.,
         ..Default::default()
     };
     let wall = Plane::new()
@@ -70,26 +64,18 @@ fn main() {
         .with_material(wall_material);
 
     let middle_sphere_transformation = Matrix::translation(-0.5, 1., 0.5);
-    let solid_pattern1 = pattern::solid::SolidPattern::new(Color::new(0.1, 0., 0.9));
-    let solid_pattern2 = pattern::solid::SolidPattern::new(Color::white());
-
-    let middle_sphere_subpattern = pattern::checker::CheckerPattern::new(
-        Box::new(solid_pattern1),
-        Box::new(solid_pattern2),
-        Matrix::identity(),
-    );
-
-    // let middle_sphere_pattern = pattern::perturbed::PerturbedPattern::new(
-    //     Box::new(middle_sphere_subpattern),
-    //     Matrix::scaling(0.5, 1.0, 0.5),
-    // );
+    // let middle_sphere_pattern = Box::new(SolidPattern::new(Color::from_rgb(75, 0, 130)));
 
     let middle_sphere_material = Material {
-        color: Color::new(0.1, 1., 0.5),
-        diffuse: 0.7,
-        specular: 0.3,
-        reflective: 0.3,
-        pattern: Some(Box::new(middle_sphere_subpattern)),
+        color: Color::from_rgb(75, 0, 130),
+        transparency: 0.9,
+        reflectivity: 1.,
+        diffuse: 0.1,
+        specular: 1.,
+        shininess: 300.,
+        ambient: 0.1,
+        pattern: None,
+        casts_shadow: false,
         ..Default::default()
     };
     let middle_sphere = Sphere::default()
@@ -103,8 +89,8 @@ fn main() {
         color: Color::new(0.5, 1., 0.1),
         diffuse: 0.7,
         specular: 0.3,
-        reflective: 0.5,
-        pattern: Some(Box::new(pattern::gradient::GradientPattern {
+        reflectivity: 0.5,
+        pattern: Some(Box::new(gradient::GradientPattern {
             a: Color::from_rgb(218, 112, 214),
             b: Color::from_rgb(75, 0, 130),
             transformation: Matrix::scaling(0.5, 0.5, 0.5),
@@ -115,13 +101,13 @@ fn main() {
         .with_transformation(right_sphere_transformation)
         .with_material(right_sphere_material);
 
-    let left_sphere_subpattern = pattern::radial_gradient::RadialGradientPattern::new(
+    let left_sphere_subpattern = radial_gradient::RadialGradientPattern::new(
         Color::new(0.1, 0., 0.9),
         Color::new(1., 0., 1.),
         Matrix::identity(),
     );
 
-    let left_sphere_pattern = pattern::perturbed::PerturbedPattern::new(
+    let left_sphere_pattern = perturbed::PerturbedPattern::new(
         Box::new(left_sphere_subpattern),
         Matrix::scaling(0.2, 0.2, 0.2),
     );

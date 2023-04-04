@@ -117,12 +117,12 @@ impl Intersection {
         // on either side of a ray-object intersection
         // n1 belongs to the material being exited
         // and n2 belongs to the material being entered
+        // (see p. 153 of the book for explanation of the algorithm)
         let mut containers: Vec<&Box<dyn Shape>> = vec![];
         let mut n1: Option<f64> = None;
         let mut n2: Option<f64> = None;
 
         for intersection in intersections {
-            // see p. 153 of the book for explanation of the algorithm
             if intersection == self {
                 if containers.is_empty() {
                     n1 = Some(1.);

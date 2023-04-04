@@ -63,6 +63,11 @@ pub trait Shape: Intersect + Send + Sync + ShapeClone {
     /// Sets the object material to the given material.
     /// Needed primarily for testing.
     fn set_material(&mut self, material: Material);
+
+    /// Returns true if the object casts a shadow.
+    fn casts_shadow(&self) -> bool {
+        self.material().casts_shadow
+    }
 }
 
 impl PartialEq for dyn Shape {

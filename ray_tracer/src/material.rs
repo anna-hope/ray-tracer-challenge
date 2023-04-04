@@ -8,7 +8,7 @@ pub struct Material {
     pub specular: f64,
     pub shininess: f64,
     pub pattern: Option<Box<dyn Pattern>>,
-    pub reflective: f64,
+    pub reflectivity: f64,
     pub transparency: f64,
     pub refractive_index: f64,
 }
@@ -95,7 +95,7 @@ impl Default for Material {
             specular: 0.9,
             shininess: 200.,
             pattern: None,
-            reflective: 0.,
+            reflectivity: 0.,
             transparency: 0.,
             refractive_index: 1.,
         }
@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn reflectivity_default_material() {
         let material = Material::default();
-        assert_eq!(material.reflective, 0.);
+        assert_eq!(material.reflectivity, 0.);
     }
 
     #[test]

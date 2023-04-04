@@ -43,7 +43,7 @@ impl World {
             let refracted_color = self.refracted_color(comps, 5)?;
 
             let material = comps.object.material();
-            if material.reflective > 0. && material.transparency > 0. {
+            if material.reflectivity > 0. && material.transparency > 0. {
                 let reflectance = comps.schlick()?;
                 Ok(surface_color
                     + reflected_color * reflectance
@@ -89,7 +89,7 @@ impl World {
     }
 
     fn reflected_color(&self, comps: &Computations) -> Result<Color> {
-        let material_reflective = comps.object.material().reflective;
+        let material_reflective = comps.object.material().reflectivity;
         if material_reflective == 0. {
             return Ok(Color::black());
         }
@@ -412,7 +412,7 @@ mod tests {
 
         let shape = Plane::new()
             .with_material(Material {
-                reflective: 0.5,
+                reflectivity: 0.5,
                 ..Default::default()
             })
             .with_transformation(Matrix::translation(0., -1., 0.));
@@ -455,7 +455,7 @@ mod tests {
 
         let shape = Plane::new()
             .with_material(Material {
-                reflective: 0.5,
+                reflectivity: 0.5,
                 ..Default::default()
             })
             .with_transformation(Matrix::translation(0., -1., 0.));
@@ -497,7 +497,7 @@ mod tests {
         let lower = Box::new(
             Plane::new()
                 .with_material(Material {
-                    reflective: 1.,
+                    reflectivity: 1.,
                     ..Default::default()
                 })
                 .with_transformation(Matrix::translation(0., -1., 0.)),
@@ -505,7 +505,7 @@ mod tests {
         let upper = Box::new(
             Plane::new()
                 .with_material(Material {
-                    reflective: 1.,
+                    reflectivity: 1.,
                     ..Default::default()
                 })
                 .with_transformation(Matrix::translation(0., 1., 0.)),
@@ -654,7 +654,7 @@ mod tests {
         let floor = Plane::new()
             .with_transformation(Matrix::translation(0., -1., 0.))
             .with_material(Material {
-                reflective: 0.5,
+                reflectivity: 0.5,
                 transparency: 0.5,
                 refractive_index: 1.5,
                 ..Default::default()

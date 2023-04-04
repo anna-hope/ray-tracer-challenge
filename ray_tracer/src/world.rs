@@ -14,11 +14,11 @@ pub struct World {
 }
 
 impl World {
-    /// Constructs an empty world with no objects and no light.
     pub fn new(objects: Vec<Box<dyn Shape>>, light: Option<PointLight>) -> Self {
         Self { objects, light }
     }
 
+    /// Constructs an empty world with no objects and no light.
     pub fn new_empty() -> Self {
         Self::new(vec![], None)
     }

@@ -122,6 +122,7 @@ impl Intersection {
         let mut n2: Option<f64> = None;
 
         for intersection in intersections {
+            // see p. 153 of the book for explanation of the algorithm
             if intersection == self {
                 if containers.is_empty() {
                     n1 = Some(1.);

@@ -25,7 +25,7 @@ impl World {
 
     /// Returns the color at the intersection encapsulated by comps,
     /// in the given world. Returns black if the world has no light source.
-    fn shade_hit(&self, comps: &Computations) -> Result<Color> {
+    fn shade_hit(&self, comps: &Computations, remaining: usize) -> Result<Color> {
         // possible future improvement: support multiple light sources
         // (p. 96 of the book)
         if let Some(light) = self.light {
@@ -39,8 +39,8 @@ impl World {
                 in_shadow,
             )?;
 
-            let reflected_color = self.reflected_color(comps)?;
-            let refracted_color = self.refracted_color(comps, 5)?;
+            let reflected_color = self.reflected_color(comps, remaining)?;
+            let refracted_color = self.refracted_color(comps, remaining)?;
 
             let material = comps.object.material();
             if material.reflectivity > 0. && material.transparency > 0. {
@@ -58,11 +58,11 @@ impl World {
 
     /// Intersects the world with the given ray and returns
     /// the color at the resulting intersection.
-    pub fn color_at(&self, ray: &Ray) -> Result<Color> {
+    pub fn color_at(&self, ray: &Ray, remaining: usize) -> Result<Color> {
         let xs = self.intersect(ray)?;
         if let Some(hit) = hit(&xs) {
             let comps = hit.prepare_computations(ray, &xs)?;
-            Ok(self.shade_hit(&comps)?)
+            Ok(self.shade_hit(&comps, remaining)?)
         } else {
             Ok(Color::default())
         }
@@ -88,14 +88,18 @@ impl World {
         }
     }
 
-    fn reflected_color(&self, comps: &Computations) -> Result<Color> {
+    fn reflected_color(&self, comps: &Computations, remaining: usize) -> Result<Color> {
+        if remaining == 0 {
+            return Ok(Color::black());
+        }
+
         let material_reflective = comps.object.material().reflectivity;
         if material_reflective == 0. {
             return Ok(Color::black());
         }
 
         let reflect_ray = Ray::new(comps.over_point, comps.reflect_vector);
-        let color = self.color_at(&reflect_ray)?;
+        let color = self.color_at(&reflect_ray, remaining - 1)?;
         Ok(color * material_reflective)
     }
 
@@ -132,7 +136,8 @@ impl World {
             // find the color of the refracted ray,
             // making sure to multiply by the transparency value
             // to account fo any opacity
-            let color = self.color_at(&refracted_ray)? * comps.object.material().transparency;
+            let color =
+                self.color_at(&refracted_ray, remaining)? * comps.object.material().transparency;
             return Ok(color);
         }
 
@@ -247,7 +252,7 @@ mod tests {
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();
-        let color = world.shade_hit(&comps).unwrap();
+        let color = world.shade_hit(&comps, 5).unwrap();
         assert_eq!(color, Color::new(0.38066, 0.47583, 0.2855));
     }
 
@@ -264,7 +269,7 @@ mod tests {
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();
-        let color = world.shade_hit(&comps).unwrap();
+        let color = world.shade_hit(&comps, 5).unwrap();
 
         let val = 0.90498;
         assert_eq!(color, Color::new(val, val, val));
@@ -286,7 +291,7 @@ mod tests {
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();
-        let color = world.shade_hit(&comps).unwrap();
+        let color = world.shade_hit(&comps, 5).unwrap();
         assert_eq!(color, Color::new(0.1, 0.1, 0.1));
     }
 
@@ -295,7 +300,7 @@ mod tests {
         // when the ray fails to intersect anything, the returned color should be black
         let world = World::default();
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 1., 0.));
-        let color = world.color_at(&ray).unwrap();
+        let color = world.color_at(&ray, 5).unwrap();
         assert_eq!(color, Color::default());
     }
 
@@ -304,7 +309,7 @@ mod tests {
         // our ray intersects the outermost sphere in the default world
         let world = World::default();
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let color = world.color_at(&ray).unwrap();
+        let color = world.color_at(&ray, 5).unwrap();
         assert_eq!(color, Color::new(0.38066, 0.47583, 0.2855));
     }
 
@@ -326,7 +331,7 @@ mod tests {
         inner.set_material(inner_material.clone());
 
         let ray = Ray::new(Tuple::point(0., 0., 0.75), Tuple::vector(0., 0., -1.));
-        let color = world.color_at(&ray).unwrap();
+        let color = world.color_at(&ray, 5).unwrap();
         assert_eq!(color, inner_material.color);
     }
 
@@ -391,7 +396,7 @@ mod tests {
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();
-        let color = world.reflected_color(&comps).unwrap();
+        let color = world.reflected_color(&comps, 5).unwrap();
         assert_eq!(color, Color::black());
     }
 
@@ -428,7 +433,7 @@ mod tests {
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();
 
-        let color = world.reflected_color(&comps).unwrap();
+        let color = world.reflected_color(&comps, 5).unwrap();
 
         // the expected values are slightly modified from the book
         // to account for floating point errors
@@ -471,7 +476,7 @@ mod tests {
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();
 
-        let color = world.shade_hit(&comps).unwrap();
+        let color = world.shade_hit(&comps, 5).unwrap();
 
         // ditto as in the above test about using modified values
         // cf. book values: color(0.87677, 0.92436, 0.82918)
@@ -516,7 +521,31 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 1., 0.));
 
         // should terminate successfully without entering infinite recursion
-        let _ = world.color_at(&ray).unwrap();
+        let _ = world.color_at(&ray, 5).unwrap();
+    }
+
+    #[test]
+    fn reflected_color_at_maximum_recursive_depth() {
+        let mut world = World::default();
+        let shape = Box::new(
+            Plane::new()
+                .with_material(Material {
+                    reflectivity: 0.5,
+                    ..Default::default()
+                })
+                .with_transformation(Matrix::translation(0., -1., 0.)),
+        );
+        world.objects.push(shape.clone());
+
+        let val = 2.0_f64.sqrt() / 2.;
+        let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
+        let intersection = Intersection::new(2.0_f64.sqrt(), shape);
+
+        let comps = intersection
+            .prepare_computations(&ray, &[intersection.clone()])
+            .unwrap();
+        let color = world.reflected_color(&comps, 0).unwrap();
+        assert_eq!(color, Color::black());
     }
 
     #[test]
@@ -534,7 +563,7 @@ mod tests {
     }
 
     #[test]
-    fn refrected_color_at_maximum_recursive_depth() {
+    fn refracted_color_at_maximum_recursive_depth() {
         let mut world = World::default();
         let shape = &mut world.objects[0];
         let mut material = shape.material();
@@ -643,7 +672,7 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
         let xs = &[Intersection::new(2.0_f64.sqrt(), Box::new(floor))];
         let comps = xs[0].prepare_computations(&ray, xs).unwrap();
-        let color = world.shade_hit(&comps).unwrap();
+        let color = world.shade_hit(&comps, 5).unwrap();
         assert_eq!(color, Color::new(0.93642, 0.68642, 0.68642));
     }
 
@@ -676,7 +705,7 @@ mod tests {
 
         let xs = &[Intersection::new(2.0_f64.sqrt(), Box::new(floor))];
         let comps = xs[0].prepare_computations(&ray, xs).unwrap();
-        let color = world.shade_hit(&comps).unwrap();
+        let color = world.shade_hit(&comps, 5).unwrap();
 
         assert_eq!(color, Color::new(0.93391, 0.69643, 0.69243));
     }

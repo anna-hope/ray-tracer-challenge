@@ -82,7 +82,7 @@ impl Camera {
                 let mut colors = vec![];
                 for x in 0..self.hsize - 1 {
                     let ray = self.ray_for_pixel(x, y)?;
-                    let color = world.color_at(&ray)?;
+                    let color = world.color_at(&ray, 5)?;
                     colors.push(color);
                 }
                 Ok(colors)

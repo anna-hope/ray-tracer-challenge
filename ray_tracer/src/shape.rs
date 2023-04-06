@@ -11,6 +11,7 @@ use crate::{
 pub enum ShapeType {
     Sphere,
     Plane,
+    Cube,
     TestShape,
 }
 pub trait ShapeClone {
@@ -63,11 +64,6 @@ pub trait Shape: Intersect + Send + Sync + ShapeClone {
     /// Sets the object material to the given material.
     /// Needed primarily for testing.
     fn set_material(&mut self, material: Material);
-
-    /// Returns true if the object casts a shadow.
-    fn casts_shadow(&self) -> bool {
-        self.material().casts_shadow
-    }
 }
 
 impl PartialEq for dyn Shape {
@@ -534,6 +530,241 @@ pub mod plane {
             assert_eq!(xs[0].t, 1.);
             assert_eq!(xs[0].object.shape_type(), ShapeType::Plane);
             assert_eq!(xs[0].object.id(), plane.id);
+        }
+    }
+}
+
+pub mod cube {
+    use std::mem;
+
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct Cube {
+        id: usize,
+        transformation: Matrix,
+        material: Material,
+    }
+
+    impl Cube {
+        pub fn new(transformation: Matrix, material: Material) -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(1);
+            let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+            Self {
+                id,
+                transformation,
+                material,
+            }
+        }
+
+        fn local_intersect(&self, ray: &Ray) -> Vec<Intersection> {
+            // see p. 170 of the book for the intuition behind this algorithm
+            let (xt_min, xt_max) = Self::check_axis(ray.origin.x, ray.direction.x);
+            let (yt_min, yt_max) = Self::check_axis(ray.origin.y, ray.direction.y);
+            let (zt_min, zt_max) = Self::check_axis(ray.origin.z, ray.direction.z);
+
+            // we know the iterators aren't empty, so ok to unwrap here
+            let t_min = *[xt_min, yt_min, zt_min]
+                .iter()
+                .max_by(|x, y| x.total_cmp(y))
+                .unwrap();
+            let t_max = *[xt_max, yt_max, zt_max]
+                .iter()
+                .min_by(|x, y| x.total_cmp(y))
+                .unwrap();
+
+            // the minimum t is farther from the ray origin than the maximum t
+            // which means the ray misses the cube
+            if t_min > t_max {
+                return vec![];
+            }
+
+            vec![
+                Intersection::new(t_min, Box::new(self.clone())),
+                Intersection::new(t_max, Box::new(self.clone())),
+            ]
+        }
+
+        /// Checks to see where the given values intersect the corresponding planes
+        /// and returns the minimum and maximum `t` values for each.
+        fn check_axis(origin: f64, direction: f64) -> (f64, f64) {
+            let t_min_numerator = -1. - origin;
+            let t_max_numerator = 1. - origin;
+
+            let mut t_min = t_min_numerator / direction;
+            let mut t_max = t_max_numerator / direction;
+
+            if t_min > t_max {
+                mem::swap(&mut t_min, &mut t_max);
+            }
+
+            (t_min, t_max)
+        }
+    }
+
+    impl Default for Cube {
+        fn default() -> Self {
+            Self::new(Matrix::identity(), Material::default())
+        }
+    }
+
+    impl Shape for Cube {
+        fn arbitrary_intersection(&self, t: f64) -> Intersection {
+            Intersection::new(t, Box::new(self.clone()))
+        }
+
+        fn id(&self) -> usize {
+            self.id
+        }
+
+        fn shape_type(&self) -> ShapeType {
+            ShapeType::Cube
+        }
+
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
+
+        /// Always picks the component of the point that has the largest absolute value.
+        fn local_normal_at(&self, point: Tuple) -> Tuple {
+            // we know the array contains elements, so ok to unwrap here
+            let max_c = *[point.x.abs(), point.y.abs(), point.z.abs()]
+                .iter()
+                .max_by(|x, y| x.total_cmp(y))
+                .unwrap();
+
+            if max_c == point.x.abs() {
+                Tuple::vector(point.x, 0., 0.)
+            } else if max_c == point.y.abs() {
+                Tuple::vector(0., point.y, 0.)
+            } else {
+                Tuple::vector(0., 0., point.z)
+            }
+        }
+
+        fn material(&self) -> Material {
+            self.material.clone()
+        }
+
+        fn set_material(&mut self, material: Material) {
+            self.material = material
+        }
+    }
+
+    impl Intersect for Cube {
+        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            let local_ray = ray.transform(self.transformation.inverse()?);
+            Ok(self.local_intersect(&local_ray))
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn ray_intersects_cube() {
+            let cube = Cube::default();
+            let examples = [
+                (
+                    Tuple::point(5., 0.5, 0.),
+                    Tuple::vector(-1., 0., 0.),
+                    4.,
+                    6.,
+                ),
+                (
+                    Tuple::point(-5., 0.5, 0.),
+                    Tuple::vector(1., 0., 0.),
+                    4.,
+                    6.,
+                ),
+                (
+                    Tuple::point(0.5, 5., 0.),
+                    Tuple::vector(0., -1., 0.),
+                    4.,
+                    6.,
+                ),
+                (
+                    Tuple::point(0.5, -5., 0.),
+                    Tuple::vector(0., 1., 0.),
+                    4.,
+                    6.,
+                ),
+                (
+                    Tuple::point(0.5, 0., 5.),
+                    Tuple::vector(0., 0., -1.),
+                    4.,
+                    6.,
+                ),
+                (
+                    Tuple::point(0.5, 0., -5.),
+                    Tuple::vector(0., 0., 1.),
+                    4.,
+                    6.,
+                ),
+                (
+                    Tuple::point(0., 0.5, 0.),
+                    Tuple::vector(0., 0., 1.),
+                    -1.,
+                    1.,
+                ),
+            ];
+
+            for (origin, direction, t1, t2) in examples {
+                let ray = Ray::new(origin, direction);
+                let xs = cube.local_intersect(&ray);
+                assert_eq!(xs.len(), 2);
+                assert_eq!(xs[0].t, t1);
+                assert_eq!(xs[1].t, t2);
+            }
+        }
+
+        #[test]
+        fn ray_misses_cube() {
+            let cube = Cube::default();
+            let examples = [
+                (
+                    Tuple::point(-2., 0., 0.),
+                    Tuple::vector(0.2673, 0.5345, 0.8018),
+                ),
+                (
+                    Tuple::point(0., -2., 0.),
+                    Tuple::vector(0.8018, 0.2673, 0.5345),
+                ),
+                (
+                    Tuple::point(0., 0., -2.),
+                    Tuple::vector(0.5345, 0.8018, 0.2673),
+                ),
+                (Tuple::point(2., 0., 2.), Tuple::vector(0., 0., -1.)),
+                (Tuple::point(0., 2., 2.), Tuple::vector(0., -1., 0.)),
+                (Tuple::point(2., 2., 0.), Tuple::vector(-1., 0., 0.)),
+            ];
+
+            for (origin, direction) in examples {
+                let ray = Ray::new(origin, direction);
+                let xs = cube.local_intersect(&ray);
+                assert_eq!(xs.len(), 0);
+            }
+        }
+
+        #[test]
+        fn normal_on_surface_of_cube() {
+            let cube = Cube::default();
+            let examples = [
+                (Tuple::point(1., 0.5, -0.8), Tuple::vector(1., 0., 0.)),
+                (Tuple::point(-1., -0.2, 0.9), Tuple::vector(-1., 0., 0.)),
+                (Tuple::point(0.4, 1., -0.1), Tuple::vector(0., 1., 0.)),
+                (Tuple::point(0.3, -1., 0.7), Tuple::vector(0., -1., 0.)),
+                (Tuple::point(-0.6, 0.3, 1.), Tuple::vector(0., 0., 1.)),
+                (Tuple::point(0.4, 0.4, -1.), Tuple::vector(0., 0., -1.)),
+                (Tuple::point(1., 1., 1.), Tuple::vector(1., 0., 0.)),
+                (Tuple::point(-1., -1., -1.), Tuple::vector(-1., 0., 0.)),
+            ];
+
+            for (point, expected_normal) in examples {
+                let normal = cube.local_normal_at(point);
+                assert_eq!(normal, expected_normal);
+            }
         }
     }
 }

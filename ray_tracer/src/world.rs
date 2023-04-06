@@ -78,7 +78,7 @@ impl World {
             let intersections = self.intersect(&ray)?;
 
             if let Some(hit) = hit(&intersections) {
-                Ok(hit.t < distance && hit.object.casts_shadow())
+                Ok(hit.t < distance && hit.object.material().casts_shadow)
             } else {
                 Ok(false)
             }

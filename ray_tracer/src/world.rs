@@ -1,6 +1,6 @@
 use crate::{
     intersection::{hit, Computations, Intersect, Intersection},
-    light::PointLight,
+    light::Light,
     material::Material,
     shape::sphere::Sphere,
     shape::Shape,
@@ -10,11 +10,11 @@ use crate::{
 #[derive(Debug)]
 pub struct World {
     pub objects: Vec<Box<dyn Shape>>,
-    pub light: Option<PointLight>,
+    pub light: Option<Light>,
 }
 
 impl World {
-    pub fn new(objects: Vec<Box<dyn Shape>>, light: Option<PointLight>) -> Self {
+    pub fn new(objects: Vec<Box<dyn Shape>>, light: Option<Light>) -> Self {
         Self { objects, light }
     }
 
@@ -150,7 +150,7 @@ impl Default for World {
     /// and two concentric spheres, where the outermost is a unit sphere
     /// and the inntermost has a radius of 0.5. Both lie at the origin.
     fn default() -> Self {
-        let light = PointLight::new(Tuple::point(-10., 10., -10.), Color::white());
+        let light = Light::new(Tuple::point(-10., 10., -10.), Color::white());
 
         let material = Material {
             color: Color::new(0.8, 1.0, 0.6),
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn create_default_world() {
         let mut world = World::default();
-        let light = PointLight::new(Tuple::point(-10., 10., -10.), Color::white());
+        let light = Light::new(Tuple::point(-10., 10., -10.), Color::white());
         assert_eq!(world.light, Some(light));
 
         let color = Color::new(0.8, 1.0, 0.6);
@@ -259,7 +259,7 @@ mod tests {
     #[test]
     fn shading_intersection_from_inside() {
         let world = World {
-            light: Some(PointLight::new(Tuple::point(0., 0.25, 0.), Color::white())),
+            light: Some(Light::new(Tuple::point(0., 0.25, 0.), Color::white())),
             ..Default::default()
         };
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
@@ -277,7 +277,7 @@ mod tests {
 
     #[test]
     fn shade_hit_is_given_intersection_in_shadow() {
-        let light = PointLight::new(Tuple::point(0., 0., -10.), Color::white());
+        let light = Light::new(Tuple::point(0., 0., -10.), Color::white());
         let sphere1 = Box::<Sphere>::default();
         let sphere2 =
             Box::new(Sphere::default().with_transformation(Matrix::translation(0., 0., 10.)));
@@ -371,7 +371,7 @@ mod tests {
         // which would happen if we went the route of constructing a default world
         // then getting a mutable reference to its second shape
         // and trying to set the material on that directly
-        let light = PointLight::new(Tuple::point(-10., 10., -10.), Color::white());
+        let light = Light::new(Tuple::point(-10., 10., -10.), Color::white());
 
         let material = Material {
             color: Color::new(0.8, 1.0, 0.6),
@@ -497,7 +497,7 @@ mod tests {
         let sphere1 = Box::new(Sphere::default().with_material(material));
         let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
 
-        let light = PointLight::new(Tuple::point(0., 0., 0.), Color::new(1., 1., 1.));
+        let light = Light::new(Tuple::point(0., 0., 0.), Color::new(1., 1., 1.));
 
         let lower = Box::new(
             Plane::new()

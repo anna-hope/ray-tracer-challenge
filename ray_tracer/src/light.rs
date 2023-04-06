@@ -1,12 +1,12 @@
 use crate::{Color, Tuple};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PointLight {
+pub struct Light {
     pub position: Tuple,
     pub intensity: Color,
 }
 
-impl PointLight {
+impl Light {
     pub fn new(position: Tuple, intensity: Color) -> Self {
         Self {
             position,
@@ -15,7 +15,7 @@ impl PointLight {
     }
 }
 
-impl Default for PointLight {
+impl Default for Light {
     fn default() -> Self {
         let position = Tuple::point(0., 0., 0.);
         let intensity = Color::white();
@@ -29,7 +29,7 @@ mod tests {
 
     #[test]
     fn point_light_has_position_and_intensity() {
-        let light = PointLight::default();
+        let light = Light::default();
         assert_eq!(light.position, Tuple::point(0., 0., 0.));
         assert_eq!(light.intensity, Color::new(1., 1., 1.));
     }

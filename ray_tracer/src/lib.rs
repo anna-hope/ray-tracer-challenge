@@ -1,4 +1,3 @@
-pub mod pattern;
 pub mod camera;
 pub mod canvas;
 pub mod color;
@@ -7,13 +6,14 @@ pub mod intersection;
 pub mod light;
 pub mod material;
 mod matrix;
+pub mod pattern;
 pub mod shape;
 pub mod transformation;
 mod tuple;
 pub mod world;
 
 pub use color::Color;
-use error::RayTracerError;
+pub use error::RayTracerError;
 pub use intersection::Ray;
 pub use matrix::Matrix;
 pub use tuple::Tuple;

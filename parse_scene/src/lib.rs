@@ -237,8 +237,6 @@ pub fn construct_object(object_type: &str, description: &Mapping) -> Result<Box<
         }
     }
 
-    dbg!(&transformation);
-
     let object: Box<dyn Shape> = match object_type {
         "sphere" => Box::new(sphere::Sphere::new(transformation, material)),
         "plane" => Box::new(plane::Plane::new(transformation, material)),

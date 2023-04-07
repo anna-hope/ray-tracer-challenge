@@ -1,8 +1,8 @@
 # the camera
 
 - add: camera
-  width: 500
-  height: 250
+  width: 1000
+  height: 500
   field-of-view: 1.0471975512
   from: [0, 5, -7]
   to: [0, 2, 0]
@@ -66,8 +66,3 @@
   transform:
     - [scale, [0.33, 0.33, 0.33]]
     - [translate, [-1.5, 0.33, -0.75]]
-
-
-
-
-

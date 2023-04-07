@@ -400,11 +400,9 @@ pub mod plane {
     }
 
     impl Plane {
-        pub fn new() -> Self {
+        pub fn new(transformation: Matrix, material: Material) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-            let transformation = Matrix::identity();
-            let material = Material::default();
             Self {
                 id,
                 transformation,
@@ -434,7 +432,9 @@ pub mod plane {
 
     impl Default for Plane {
         fn default() -> Self {
-            Self::new()
+            let transformation = Matrix::identity();
+            let material = Material::default();
+            Self::new(transformation, material)
         }
     }
 
@@ -485,7 +485,7 @@ pub mod plane {
 
         #[test]
         fn normal_of_plane_is_constant_everywhere() {
-            let plane = Plane::new();
+            let plane = Plane::default();
             let normal_1 = plane.local_normal_at(Tuple::point(0., 0., 0.));
             let normal_2 = plane.local_normal_at(Tuple::point(10., 0., -10.));
             let normal_3 = plane.local_normal_at(Tuple::point(-5., 0., 150.));
@@ -496,7 +496,7 @@ pub mod plane {
 
         #[test]
         fn intersect_ray_parallel_to_plane() {
-            let plane = Plane::new();
+            let plane = Plane::default();
             let ray = Ray::new(Tuple::point(0., 10., 0.), Tuple::vector(0., 0., 1.));
             let xs = plane.local_intersect(&ray);
             assert!(xs.is_empty());
@@ -504,7 +504,7 @@ pub mod plane {
 
         #[test]
         fn intersect_with_coplanar_ray() {
-            let plane = Plane::new();
+            let plane = Plane::default();
             let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
             let xs = plane.local_intersect(&ray);
             assert!(xs.is_empty());
@@ -512,7 +512,7 @@ pub mod plane {
 
         #[test]
         fn ray_intersecting_plane_from_above() {
-            let plane = Plane::new();
+            let plane = Plane::default();
             let ray = Ray::new(Tuple::point(0., 1., 0.), Tuple::vector(0., -1., 0.));
             let xs = plane.local_intersect(&ray);
             assert_eq!(xs.len(), 1);
@@ -523,7 +523,7 @@ pub mod plane {
 
         #[test]
         fn ray_intersecting_plane_from_below() {
-            let plane = Plane::new();
+            let plane = Plane::default();
             let ray = Ray::new(Tuple::point(0., -1., 0.), Tuple::vector(0., 1., 0.));
             let xs = plane.local_intersect(&ray);
             assert_eq!(xs.len(), 1);

@@ -352,7 +352,7 @@ mod tests {
 
     #[test]
     fn precompute_reflection_vector() {
-        let shape = Box::new(Plane::new());
+        let shape = Box::new(Plane::default());
         let val = 2.0_f64 / 2.;
         let ray = Ray::new(Tuple::point(0., 1., -1.), Tuple::vector(0., -val, val));
         let intersection = Intersection::new(2.0_f64.sqrt(), shape);

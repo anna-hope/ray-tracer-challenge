@@ -415,7 +415,7 @@ mod tests {
         let sphere1 = Box::new(Sphere::default().with_material(material));
         let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
 
-        let shape = Plane::new()
+        let shape = Plane::default()
             .with_material(Material {
                 reflectivity: 0.5,
                 ..Default::default()
@@ -458,7 +458,7 @@ mod tests {
         let sphere1 = Box::new(Sphere::default().with_material(material));
         let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
 
-        let shape = Plane::new()
+        let shape = Plane::default()
             .with_material(Material {
                 reflectivity: 0.5,
                 ..Default::default()
@@ -500,7 +500,7 @@ mod tests {
         let light = Light::new(Tuple::point(0., 0., 0.), Color::new(1., 1., 1.));
 
         let lower = Box::new(
-            Plane::new()
+            Plane::default()
                 .with_material(Material {
                     reflectivity: 1.,
                     ..Default::default()
@@ -508,7 +508,7 @@ mod tests {
                 .with_transformation(Matrix::translation(0., -1., 0.)),
         );
         let upper = Box::new(
-            Plane::new()
+            Plane::default()
                 .with_material(Material {
                     reflectivity: 1.,
                     ..Default::default()
@@ -528,7 +528,7 @@ mod tests {
     fn reflected_color_at_maximum_recursive_depth() {
         let mut world = World::default();
         let shape = Box::new(
-            Plane::new()
+            Plane::default()
                 .with_material(Material {
                     reflectivity: 0.5,
                     ..Default::default()
@@ -649,7 +649,7 @@ mod tests {
     fn shade_hit_with_transparent_material() {
         let mut world = World::default();
 
-        let floor = Plane::new()
+        let floor = Plane::default()
             .with_transformation(Matrix::translation(0., -1., 0.))
             .with_material(Material {
                 transparency: 0.5,
@@ -680,7 +680,7 @@ mod tests {
     fn shade_hit_with_reflective_transparent_material() {
         let mut world = World::default();
 
-        let floor = Plane::new()
+        let floor = Plane::default()
             .with_transformation(Matrix::translation(0., -1., 0.))
             .with_material(Material {
                 reflectivity: 0.5,

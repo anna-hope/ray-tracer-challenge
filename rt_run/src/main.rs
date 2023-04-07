@@ -30,10 +30,10 @@ fn main() {
     let ppm = canvas.to_ppm();
 
     let filename_stem = yaml_filename
-        .split(".")
-        .nth(0)
+        .split('.')
+        .next()
         .unwrap()
-        .split("/")
+        .split('/')
         .last()
         .unwrap();
     let output_filename = format!("{filename_stem}.ppm",);

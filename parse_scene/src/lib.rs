@@ -20,6 +20,9 @@ pub enum ParseError {
     #[error("Encountered unknown item: {0}")]
     UnknownItem(String),
 
+    #[error("The scene is missing camera defintion")]
+    MissingCamera,
+
     #[error("Invalid parameters for camera: {0}")]
     InvalidCameraParams(String),
 
@@ -29,8 +32,8 @@ pub enum ParseError {
     #[error("Invalid parameters for shape: {0}")]
     InvalidShapeParams(String),
 
-    #[error("Invalid value")]
-    InvalidValue,
+    #[error("Invalid value: {0}")]
+    InvalidValue(String),
 }
 
 pub type Result<T> = std::result::Result<T, ParseError>;
@@ -61,14 +64,15 @@ trait GetF64Vec {
 
 impl GetF64 for Value {
     fn get_f64(&self) -> Result<f64> {
-        self.as_f64().ok_or(ParseError::InvalidValue)
+        self.as_f64()
+            .ok_or(ParseError::InvalidValue(format!("{self:#?}")))
     }
 }
 
 impl GetF64Vec for Value {
     fn get_f64_vec(&self) -> Result<Vec<f64>> {
         self.as_sequence()
-            .ok_or(ParseError::InvalidValue)?
+            .ok_or(ParseError::InvalidValue(format!("{self:#?}")))?
             .iter()
             .map(|f| f.get_f64())
             .collect::<Result<Vec<f64>>>()
@@ -200,11 +204,13 @@ pub fn construct_object(object_type: &str, description: &Mapping) -> Result<Box<
         for value in transformations {
             let key = value
                 .get(0)
-                .ok_or(ParseError::InvalidValue)?
+                .ok_or(ParseError::InvalidValue(format!("{value:#?}")))?
                 .as_str()
-                .ok_or(ParseError::InvalidValue)?;
+                .ok_or(ParseError::InvalidValue(format!("{value:#?}")))?;
 
-            let value = value.get(1).ok_or(ParseError::InvalidValue)?;
+            let value = value
+                .get(1)
+                .ok_or(ParseError::InvalidValue(format!("{value:#?}")))?;
 
             if value.is_sequence() {
                 let value = value.get_f64_vec()?;
@@ -279,7 +285,7 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
         }
     }
 
-    let camera = camera.expect("The scene must define a camera!");
+    let camera = camera.ok_or(ParseError::MissingCamera)?;
 
     let scene = Scene {
         camera,

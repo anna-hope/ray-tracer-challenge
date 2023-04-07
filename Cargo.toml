@@ -1,6 +1,3 @@
 [workspace]
 
-members = [
-  "ray_tracer",
-  "rt_run",
-]
+members = ["ray_tracer", "rt_run", "parse_scene"]

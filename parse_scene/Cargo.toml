@@ -1,10 +1,11 @@
 [package]
-name = "rt_run"
+name = "parse_scene"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde_yaml = "0.9.21"
 ray_tracer = { path = "../ray_tracer" }
-parse_scene = { path = "../parse_scene" }
+thiserror = "1.0"

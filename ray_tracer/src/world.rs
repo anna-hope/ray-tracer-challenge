@@ -10,29 +10,29 @@ use crate::{
 #[derive(Debug)]
 pub struct World {
     pub objects: Vec<Box<dyn Shape>>,
-    pub light: Option<Light>,
+    pub lights: Vec<Light>,
 }
 
 impl World {
-    pub fn new(objects: Vec<Box<dyn Shape>>, light: Option<Light>) -> Self {
-        Self { objects, light }
+    pub fn new(objects: Vec<Box<dyn Shape>>, lights: Vec<Light>) -> Self {
+        Self { objects, lights }
     }
 
     /// Constructs an empty world with no objects and no light.
     pub fn new_empty() -> Self {
-        Self::new(vec![], None)
+        Self::new(vec![], vec![])
     }
 
     /// Returns the color at the intersection encapsulated by comps,
     /// in the given world. Returns black if the world has no light source.
     fn shade_hit(&self, comps: &Computations, remaining: usize) -> Result<Color> {
-        // possible future improvement: support multiple light sources
-        // (p. 96 of the book)
-        if let Some(light) = self.light {
+        let mut colors = vec![];
+
+        for light in &self.lights {
             let in_shadow = self.is_shadowed(comps.over_point)?;
             let surface_color = comps.object.material().lighting(
                 comps.object,
-                light,
+                *light,
                 comps.over_point,
                 comps.eye_vector,
                 comps.normal_vector,
@@ -43,16 +43,21 @@ impl World {
             let refracted_color = self.refracted_color(comps, remaining)?;
 
             let material = comps.object.material();
-            if material.reflectivity > 0. && material.transparency > 0. {
+            let color = if material.reflectivity > 0. && material.transparency > 0. {
                 let reflectance = comps.schlick()?;
-                Ok(surface_color
-                    + reflected_color * reflectance
-                    + refracted_color * (1. - reflectance))
+                surface_color + reflected_color * reflectance + refracted_color * (1. - reflectance)
             } else {
-                Ok(surface_color + reflected_color + refracted_color)
-            }
+                surface_color + reflected_color + refracted_color
+            };
+
+            colors.push(color);
+        }
+
+        if let Some(final_color) = colors.into_iter().reduce(|acc, element| acc + element) {
+            Ok(final_color)
         } else {
-            Ok(Color::default())
+            // there are no lights, so everything is black
+            Ok(Color::black())
         }
     }
 
@@ -69,7 +74,8 @@ impl World {
     }
 
     fn is_shadowed(&self, point: Tuple) -> Result<bool> {
-        if let Some(light) = self.light {
+        let mut shadowed_values = vec![];
+        for light in &self.lights {
             let distance_vector = light.position - point;
             let distance = distance_vector.magnitude();
             let direction = distance_vector.norm();
@@ -78,14 +84,12 @@ impl World {
             let intersections = self.intersect(&ray)?;
 
             if let Some(hit) = hit(&intersections) {
-                Ok(hit.t < distance && hit.object.material().casts_shadow)
+                shadowed_values.push(hit.t < distance && hit.object.material().casts_shadow);
             } else {
-                Ok(false)
+                shadowed_values.push(false);
             }
-        } else {
-            // if there is no light, everything is shadowed
-            Ok(true)
         }
+        Ok(shadowed_values.iter().any(|x| *x))
     }
 
     fn reflected_color(&self, comps: &Computations, remaining: usize) -> Result<Color> {
@@ -165,7 +169,7 @@ impl Default for World {
         let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
 
         Self {
-            light: Some(light),
+            lights: vec![light],
             objects: vec![sphere1, sphere2],
         }
     }
@@ -193,14 +197,14 @@ mod tests {
     fn create_a_world() {
         let world = World::new_empty();
         assert!(world.objects.is_empty());
-        assert_eq!(world.light, None);
+        assert_eq!(world.lights, vec![]);
     }
 
     #[test]
     fn create_default_world() {
         let mut world = World::default();
         let light = Light::new(Tuple::point(-10., 10., -10.), Color::white());
-        assert_eq!(world.light, Some(light));
+        assert_eq!(world.lights, vec![light]);
 
         let color = Color::new(0.8, 1.0, 0.6);
         let diffuse = 0.7;
@@ -259,7 +263,7 @@ mod tests {
     #[test]
     fn shading_intersection_from_inside() {
         let world = World {
-            light: Some(Light::new(Tuple::point(0., 0.25, 0.), Color::white())),
+            lights: vec![Light::new(Tuple::point(0., 0.25, 0.), Color::white())],
             ..Default::default()
         };
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
@@ -282,7 +286,7 @@ mod tests {
         let sphere2 =
             Box::new(Sphere::default().with_transformation(Matrix::translation(0., 0., 10.)));
         let world = World {
-            light: Some(light),
+            lights: vec![light],
             objects: vec![sphere1, sphere2.clone()],
         };
 
@@ -387,7 +391,7 @@ mod tests {
         let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
 
         let world = World {
-            light: Some(light),
+            lights: vec![light],
             objects: vec![sphere1, sphere2],
         };
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
@@ -516,7 +520,7 @@ mod tests {
                 .with_transformation(Matrix::translation(0., 1., 0.)),
         );
 
-        let world = World::new(vec![sphere1, sphere2, lower, upper], Some(light));
+        let world = World::new(vec![sphere1, sphere2, lower, upper], vec![light]);
 
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 1., 0.));
 

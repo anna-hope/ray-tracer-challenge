@@ -20,7 +20,7 @@ fn main() {
 
     let scene = parse_scene(data.as_str()).expect("Should be able to parse scene YAML");
 
-    let world = World::new(scene.objects, scene.lights.get(0).cloned());
+    let world = World::new(scene.objects, scene.lights);
 
     let canvas = scene
         .camera

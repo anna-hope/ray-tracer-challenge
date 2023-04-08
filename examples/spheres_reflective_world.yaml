@@ -17,7 +17,7 @@
 - add: plane
   material:
     color: [0.5450980392, 0, 0.5450980392]
-    reflectivity: 1
+    reflective: 1
     diffuse: 0.6
     ambient: 0.6
   transform:
@@ -27,7 +27,7 @@
 # the floor
 - add: plane
   material:
-    reflectivity: 0.3
+    reflective: 0.3
     color: [0, 0.7490196078, 1]
 
 # the spheres

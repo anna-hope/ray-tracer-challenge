@@ -23,6 +23,18 @@ impl World {
         Self::new(vec![], vec![])
     }
 
+    /// Intersects the world with the given ray and returns
+    /// the color at the resulting intersection.
+    pub fn color_at(&self, ray: &Ray, remaining: usize) -> Result<Color> {
+        let xs = self.intersect(ray)?;
+        if let Some(hit) = hit(&xs) {
+            let comps = hit.prepare_computations(ray, &xs)?;
+            Ok(self.shade_hit(&comps, remaining)?)
+        } else {
+            Ok(Color::default())
+        }
+    }
+
     /// Returns the color at the intersection encapsulated by comps,
     /// in the given world. Returns black if the world has no light source.
     fn shade_hit(&self, comps: &Computations, remaining: usize) -> Result<Color> {
@@ -58,18 +70,6 @@ impl World {
         } else {
             // there are no lights, so everything is black
             Ok(Color::black())
-        }
-    }
-
-    /// Intersects the world with the given ray and returns
-    /// the color at the resulting intersection.
-    pub fn color_at(&self, ray: &Ray, remaining: usize) -> Result<Color> {
-        let xs = self.intersect(ray)?;
-        if let Some(hit) = hit(&xs) {
-            let comps = hit.prepare_computations(ray, &xs)?;
-            Ok(self.shade_hit(&comps, remaining)?)
-        } else {
-            Ok(Color::default())
         }
     }
 

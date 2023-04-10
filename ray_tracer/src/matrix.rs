@@ -1,3 +1,4 @@
+use once_cell::sync::OnceCell;
 use std::ops::{Index, IndexMut, Mul};
 
 use crate::{equal, error::RayTracerError, Result, Tuple};
@@ -5,6 +6,7 @@ use crate::{equal, error::RayTracerError, Result, Tuple};
 #[derive(Clone, Debug)]
 pub struct Matrix {
     data: Vec<Vec<f64>>,
+    inverse: OnceCell<Box<Matrix>>,
 }
 
 impl Matrix {
@@ -14,7 +16,17 @@ impl Matrix {
             .iter()
             .map(|row| row.to_vec())
             .collect::<Vec<_>>();
-        Self { data }
+        Self {
+            data,
+            inverse: OnceCell::new(),
+        }
+    }
+
+    pub fn new_from_vec(data: Vec<Vec<f64>>) -> Self {
+        Self {
+            data,
+            inverse: OnceCell::new(),
+        }
     }
 
     pub fn identity() -> Self {
@@ -39,7 +51,7 @@ impl Matrix {
             }
         }
 
-        Self { data }
+        Self::new_from_vec(data)
     }
 
     pub fn transpose(&self) -> Self {
@@ -118,7 +130,8 @@ impl Matrix {
                 data.push(new_row);
             }
         }
-        Self { data }
+
+        Self::new_from_vec(data)
     }
 
     pub fn minor(&self, row_index: usize, column_index: usize) -> f64 {
@@ -142,23 +155,27 @@ impl Matrix {
     }
 
     pub fn inverse(&self) -> Result<Self> {
-        if !self.is_invertible() {
-            return Err(RayTracerError::NonInvertibleMatrix);
-        }
-
-        let (m, n) = self.dim();
-        let mut new_matrix = Matrix::zeros(m, n);
-
-        let det = self.determinant();
-
-        for row in 0..m {
-            for column in 0..n {
-                let cofactor = self.cofactor(row, column);
-                new_matrix.data[column][row] = cofactor / det;
+        let inverse = self.inverse.get_or_try_init(|| {
+            if !self.is_invertible() {
+                return Err(RayTracerError::NonInvertibleMatrix);
             }
-        }
 
-        Ok(new_matrix)
+            let (m, n) = self.dim();
+            let mut new_matrix = Matrix::zeros(m, n);
+
+            let det = self.determinant();
+
+            for row in 0..m {
+                for column in 0..n {
+                    let cofactor = self.cofactor(row, column);
+                    new_matrix.data[column][row] = cofactor / det;
+                }
+            }
+
+            Ok(Box::new(new_matrix))
+        })?;
+
+        Ok(*inverse.clone())
     }
 
     pub fn translation(x: f64, y: f64, z: f64) -> Self {
@@ -298,7 +315,7 @@ impl Mul<Self> for Matrix {
             }
             result_rows.push(result_row);
         }
-        Self { data: result_rows }
+        Self::new_from_vec(result_rows)
     }
 }
 
@@ -565,6 +582,7 @@ mod tests {
         ]);
         assert_eq!(a.determinant(), 0.0);
         assert!(!a.is_invertible());
+        assert!(a.inverse().is_err())
     }
 
     #[test]

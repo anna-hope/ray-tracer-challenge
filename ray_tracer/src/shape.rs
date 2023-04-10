@@ -560,7 +560,20 @@ pub mod cube {
         fn local_intersect(&self, ray: &Ray) -> Vec<Intersection> {
             // see p. 170 of the book for the intuition behind this algorithm
             let (xt_min, xt_max) = Self::check_axis(ray.origin.x, ray.direction.x);
+
+            // if xt_min == inf or xt_max == -inf, chances are the overall min will be larger than the max
+            // which means the ray missed the cube
+            if xt_min == f64::INFINITY || xt_max == -f64::INFINITY {
+                return vec![];
+            }
+
             let (yt_min, yt_max) = Self::check_axis(ray.origin.y, ray.direction.y);
+
+            // ditto here
+            if yt_min == f64::INFINITY || yt_max == -f64::INFINITY {
+                return vec![];
+            }
+
             let (zt_min, zt_max) = Self::check_axis(ray.origin.z, ray.direction.z);
 
             // we know the iterators aren't empty, so ok to unwrap here

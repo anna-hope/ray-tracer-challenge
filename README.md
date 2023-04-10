@@ -1,7 +1,7 @@
 # The Ray Tracer Challenge in Rust (WIP)
 
 This reposity is a work-in-progress implementation of [The Ray Tracer Challenge](http://raytracerchallenge.com/)
-in Rust. 
+in Rust.
 
 ## Build and run
 
@@ -12,7 +12,7 @@ To run:
 Release mode is highly recommended, as the renderer is *much* slower in debug mode.
 
 ```
-cargo run --release
+cargo run --release samples/<sample>.yaml
 ```
 
 ## Run tests

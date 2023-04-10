@@ -29,7 +29,7 @@ impl World {
         let mut colors = vec![];
 
         for light in &self.lights {
-            let in_shadow = self.is_shadowed(comps.over_point)?;
+            let in_shadow = self.is_shadowed(comps.over_point, light)?;
             let surface_color = comps.object.material().lighting(
                 comps.object,
                 *light,
@@ -73,23 +73,19 @@ impl World {
         }
     }
 
-    fn is_shadowed(&self, point: Tuple) -> Result<bool> {
-        let mut shadowed_values = vec![];
-        for light in &self.lights {
-            let distance_vector = light.position - point;
-            let distance = distance_vector.magnitude();
-            let direction = distance_vector.norm();
+    fn is_shadowed(&self, point: Tuple, light: &Light) -> Result<bool> {
+        let distance_vector = light.position - point;
+        let distance = distance_vector.magnitude();
+        let direction = distance_vector.norm();
 
-            let ray = Ray::new(point, direction);
-            let intersections = self.intersect(&ray)?;
+        let ray = Ray::new(point, direction);
+        let intersections = self.intersect(&ray)?;
 
-            if let Some(hit) = hit(&intersections) {
-                shadowed_values.push(hit.t < distance && hit.object.material().casts_shadow);
-            } else {
-                shadowed_values.push(false);
-            }
+        if let Some(hit) = hit(&intersections) {
+            Ok(hit.t < distance && hit.object.material().casts_shadow)
+        } else {
+            Ok(false)
         }
-        Ok(shadowed_values.iter().any(|x| *x))
     }
 
     fn reflected_color(&self, comps: &Computations, remaining: usize) -> Result<Color> {
@@ -343,7 +339,7 @@ mod tests {
     fn no_shadow_when_nothing_is_collinear_with_point_and_light() {
         let world = World::default();
         let point = Tuple::point(0., 10., 0.);
-        let is_shadowed = world.is_shadowed(point).unwrap();
+        let is_shadowed = world.is_shadowed(point, &world.lights[0]).unwrap();
         assert!(!is_shadowed);
     }
 
@@ -351,21 +347,21 @@ mod tests {
     fn shadow_when_object_is_between_point_and_light() {
         let world = World::default();
         let point = Tuple::point(10., -10., 10.);
-        assert!(world.is_shadowed(point).unwrap());
+        assert!(world.is_shadowed(point, &world.lights[0]).unwrap());
     }
 
     #[test]
     fn no_shadow_when_object_is_behind_light() {
         let world = World::default();
         let point = Tuple::point(-20., 20., -20.);
-        assert!(!world.is_shadowed(point).unwrap());
+        assert!(!world.is_shadowed(point, &world.lights[0]).unwrap());
     }
 
     #[test]
     fn no_shadow_when_object_is_behind_point() {
         let world = World::default();
         let point = Tuple::point(-2., -2., -2.);
-        assert!(!world.is_shadowed(point).unwrap());
+        assert!(!world.is_shadowed(point, &world.lights[0]).unwrap());
     }
 
     #[test]

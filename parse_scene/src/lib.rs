@@ -542,6 +542,17 @@ fn construct_object(
         "sphere" => Box::new(sphere::Sphere::new(transformation, material)),
         "plane" => Box::new(plane::Plane::new(transformation, material)),
         "cube" => Box::new(cube::Cube::new(transformation, material)),
+        "cylinder" => {
+            // cylinders can be truncated and have a minimum and a maximum
+            let minimum = get_or_default_f64!(description, "minimum", -f64::INFINITY);
+            let maximum = get_or_default_f64!(description, "maximum", f64::INFINITY);
+            Box::new(cylinder::Cylinder::new(
+                transformation,
+                material,
+                minimum,
+                maximum,
+            ))
+        }
         _ => unimplemented!(),
     };
 
@@ -568,7 +579,7 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
                         let light = construct_light(mapping)?;
                         lights.push(light);
                     }
-                    "sphere" | "plane" | "cube" => {
+                    "sphere" | "plane" | "cube" | "cylinder" => {
                         let object = construct_object(item_type.as_str(), mapping, &definitions)?;
                         objects.push(object);
                     }

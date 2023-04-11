@@ -12,6 +12,7 @@ pub enum ShapeType {
     Sphere,
     Plane,
     Cube,
+    Cylinder,
     TestShape,
 }
 pub trait ShapeClone {
@@ -777,6 +778,216 @@ pub mod cube {
             for (point, expected_normal) in examples {
                 let normal = cube.local_normal_at(point);
                 assert_eq!(normal, expected_normal);
+            }
+        }
+    }
+}
+
+pub mod cylinder {
+
+    use crate::EPSILON;
+    use std::mem;
+
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct Cylinder {
+        id: usize,
+        transformation: Matrix,
+        material: Material,
+        minimum: f64,
+        maximum: f64,
+    }
+
+    impl Cylinder {
+        pub fn new(transformation: Matrix, material: Material, minimum: f64, maximum: f64) -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(1);
+            let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+            Self {
+                id,
+                transformation,
+                material,
+                minimum,
+                maximum,
+            }
+        }
+
+        fn local_intersect(&self, ray: &Ray) -> Vec<Intersection> {
+            let a = ray.direction.x.powi(2) + ray.direction.z.powi(2);
+
+            // ray is parallel to the y axis
+            if a <= EPSILON {
+                return vec![];
+            }
+
+            let b = 2. * ray.origin.x * ray.direction.x + 2. * ray.origin.z * ray.direction.z;
+            let c = ray.origin.x.powi(2) + ray.origin.z.powi(2) - 1.;
+
+            let discriminant = b.powi(2) - 4. * a * c;
+
+            // ray does not intersect the cylinder
+            if discriminant < 0. {
+                return vec![];
+            }
+
+            let mut t0 = (-b - discriminant.sqrt()) / (2. * a);
+            let mut t1 = (-b + discriminant.sqrt()) / (2. * a);
+
+            if t0 > t1 {
+                mem::swap(&mut t0, &mut t1);
+            }
+
+            let mut intersections = vec![];
+            let y0 = ray.origin.y + t0 * ray.direction.y;
+
+            if self.minimum < y0 && y0 < self.maximum {
+                intersections.push(Intersection::new(t0, Box::new(self.clone())));
+            }
+
+            let y1 = ray.origin.y + t1 * ray.direction.y;
+            if self.minimum < y1 && y1 < self.maximum {
+                intersections.push(Intersection::new(t1, Box::new(self.clone())));
+            }
+
+            intersections
+        }
+    }
+
+    impl Shape for Cylinder {
+        fn id(&self) -> usize {
+            self.id
+        }
+
+        fn shape_type(&self) -> ShapeType {
+            ShapeType::Cylinder
+        }
+
+        fn arbitrary_intersection(&self, t: f64) -> Intersection {
+            Intersection::new(t, Box::new(self.clone()))
+        }
+
+        fn material(&self) -> Material {
+            self.material.clone()
+        }
+
+        fn set_material(&mut self, material: Material) {
+            self.material = material;
+        }
+
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
+
+        fn local_normal_at(&self, point: Tuple) -> Tuple {
+            Tuple::vector(point.x, 0., point.z)
+        }
+    }
+
+    impl Intersect for Cylinder {
+        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            let local_ray = ray.transform(self.transformation.inverse()?);
+            Ok(self.local_intersect(&local_ray))
+        }
+    }
+
+    impl Default for Cylinder {
+        fn default() -> Self {
+            Self::new(
+                Matrix::identity(),
+                Material::default(),
+                -f64::INFINITY,
+                f64::INFINITY,
+            )
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use crate::equal;
+
+        use super::*;
+
+        #[test]
+        fn ray_misses_cylinder() {
+            let cylinder = Cylinder::default();
+            let examples = [
+                (Tuple::point(1., 0., 0.), Tuple::vector(0., 1., 0.)),
+                (Tuple::point(0., 0., 0.), Tuple::vector(0., 1., 0.)),
+                (Tuple::point(0., 0., -5.), Tuple::vector(1., 1., 1.)),
+            ];
+            for (origin, direction) in examples {
+                let direction = direction.norm();
+                let ray = Ray::new(origin, direction);
+                let xs = cylinder.local_intersect(&ray);
+                assert_eq!(xs.len(), 0);
+            }
+        }
+
+        #[test]
+        fn ray_strikes_cylinder() {
+            let cylinder = Cylinder::default();
+            let examples = [
+                (Tuple::point(1., 0., -5.), Tuple::vector(0., 0., 1.), 5., 5.),
+                (Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.), 4., 6.),
+                (
+                    Tuple::point(0.5, 0., -5.),
+                    Tuple::vector(0.1, 1., 1.),
+                    6.80798,
+                    7.08872,
+                ),
+            ];
+
+            for (origin, direction, t0, t1) in examples {
+                let direction = direction.norm();
+                let ray = Ray::new(origin, direction);
+
+                let xs = cylinder.local_intersect(&ray);
+                assert_eq!(xs.len(), 2);
+                assert!(equal(xs[0].t, t0));
+                assert!(equal(xs[1].t, t1));
+            }
+        }
+
+        #[test]
+        fn normal_vector_on_cylinder() {
+            let cylinder = Cylinder::default();
+            let examples = [
+                (Tuple::point(1., 0., 0.), Tuple::vector(1., 0., 0.)),
+                (Tuple::point(0., 5., -1.), Tuple::vector(0., 0., -1.)),
+                (Tuple::point(0., -2., 1.), Tuple::vector(0., 0., 1.)),
+                (Tuple::point(-1., 1., 0.), Tuple::vector(-1., 0., 0.)),
+            ];
+
+            for (point, expected_normal) in examples {
+                let normal = cylinder.local_normal_at(point);
+                assert_eq!(expected_normal, normal);
+            }
+        }
+
+        #[test]
+        fn default_minimum_and_maximum_for_cylinder() {
+            let cylinder = Cylinder::default();
+            assert_eq!(cylinder.minimum, -f64::INFINITY);
+            assert_eq!(cylinder.maximum, f64::INFINITY);
+        }
+
+        #[test]
+        fn intersecting_constrained_cylinder() {
+            let cylinder = Cylinder::new(Matrix::identity(), Material::default(), 1., 2.);
+            let examples = [
+                (Tuple::point(0., 1.5, 0.), Tuple::vector(0.1, 1., 0.), 0),
+                (Tuple::point(0., 3., -5.), Tuple::vector(0., 0., 1.), 0),
+                (Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.), 0),
+                (Tuple::point(0., 2., -5.), Tuple::vector(0., 0., 1.), 0),
+                (Tuple::point(0., 1., -5.), Tuple::vector(0., 0., 1.), 0),
+                (Tuple::point(0., 1.5, -2.), Tuple::vector(0., 0., 1.), 2),
+            ];
+
+            for (point, direction, count) in examples {
+                let direction = direction.norm();
+                let ray = Ray::new(point, direction);
+                let xs = cylinder.local_intersect(&ray);
+                assert_eq!(xs.len(), count);
             }
         }
     }

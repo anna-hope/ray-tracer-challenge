@@ -24,6 +24,17 @@ impl Ray {
         let direction = matrix * self.direction;
         Self { origin, direction }
     }
+
+    /// Helper method for cylinders and cones.
+    ///
+    /// Checks to see if the intersection at `t` is within a given radius
+    /// from the y axis.
+    pub fn check_cap(&self, t: f64, radius: f64) -> bool {
+        let x = self.origin.x + t * self.direction.x;
+        let z = self.origin.z + t * self.direction.z;
+
+        (x.powi(2) + z.powi(2)) <= radius
+    }
 }
 
 pub trait Intersect {

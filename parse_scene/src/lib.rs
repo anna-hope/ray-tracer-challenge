@@ -546,11 +546,17 @@ fn construct_object(
             // cylinders can be truncated and have a minimum and a maximum
             let minimum = get_or_default_f64!(description, "minimum", -f64::INFINITY);
             let maximum = get_or_default_f64!(description, "maximum", f64::INFINITY);
+            let closed = description
+                .get("closed")
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false);
+
             Box::new(cylinder::Cylinder::new(
                 transformation,
                 material,
                 minimum,
                 maximum,
+                closed,
             ))
         }
         _ => unimplemented!(),

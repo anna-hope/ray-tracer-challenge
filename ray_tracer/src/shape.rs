@@ -785,7 +785,7 @@ pub mod cube {
 
 pub mod cylinder {
 
-    use crate::EPSILON;
+    use crate::{equal, EPSILON};
     use std::mem;
 
     use super::*;
@@ -797,10 +797,17 @@ pub mod cylinder {
         material: Material,
         minimum: f64,
         maximum: f64,
+        closed: bool,
     }
 
     impl Cylinder {
-        pub fn new(transformation: Matrix, material: Material, minimum: f64, maximum: f64) -> Self {
+        pub fn new(
+            transformation: Matrix,
+            material: Material,
+            minimum: f64,
+            maximum: f64,
+            closed: bool,
+        ) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
             Self {
@@ -809,6 +816,7 @@ pub mod cylinder {
                 material,
                 minimum,
                 maximum,
+                closed,
             }
         }
 
@@ -816,8 +824,8 @@ pub mod cylinder {
             let a = ray.direction.x.powi(2) + ray.direction.z.powi(2);
 
             // ray is parallel to the y axis
-            if a <= EPSILON {
-                return vec![];
+            if equal(a, 0.) {
+                return self.intersect_caps(ray);
             }
 
             let b = 2. * ray.origin.x * ray.direction.x + 2. * ray.origin.z * ray.direction.z;
@@ -847,6 +855,32 @@ pub mod cylinder {
             let y1 = ray.origin.y + t1 * ray.direction.y;
             if self.minimum < y1 && y1 < self.maximum {
                 intersections.push(Intersection::new(t1, Box::new(self.clone())));
+            }
+
+            let mut intersections_caps = self.intersect_caps(ray);
+            intersections.append(&mut intersections_caps);
+
+            intersections
+        }
+
+        fn intersect_caps(&self, ray: &Ray) -> Vec<Intersection> {
+            let mut intersections = vec![];
+
+            // caps only matter if the cylinder is closed, and might possibly be intersected by the ray
+            if !self.closed || equal(ray.direction.y, 0.) {
+                return intersections;
+            }
+
+            // check for an intersection with the lower end cap
+            let t = (self.minimum - ray.origin.y) / ray.direction.y;
+            if ray.check_cap(t, 1.) {
+                intersections.push(Intersection::new(t, Box::new(self.clone())));
+            }
+
+            // check for an intersection with the upper end cap
+            let t = (self.maximum - ray.origin.y) / ray.direction.y;
+            if ray.check_cap(t, 1.) {
+                intersections.push(Intersection::new(t, Box::new(self.clone())));
             }
 
             intersections
@@ -879,7 +913,20 @@ pub mod cylinder {
         }
 
         fn local_normal_at(&self, point: Tuple) -> Tuple {
-            Tuple::vector(point.x, 0., point.z)
+            // we must check to see which end cap the point corresponds to
+            // or see if it lies on the cylinder itself
+            // see p.187 of the book for explanation of the algorithm
+
+            // compute the square of the distance from the y axis
+            let distance = point.x.powi(2) + point.z.powi(2);
+
+            if distance < 1. && point.y >= self.maximum - EPSILON {
+                Tuple::vector(0., 1., 0.)
+            } else if distance < 1. && point.y <= self.minimum + EPSILON {
+                Tuple::vector(0., -1., 0.)
+            } else {
+                Tuple::vector(point.x, 0., point.z)
+            }
         }
     }
 
@@ -897,6 +944,7 @@ pub mod cylinder {
                 Material::default(),
                 -f64::INFINITY,
                 f64::INFINITY,
+                false,
             )
         }
     }
@@ -973,7 +1021,7 @@ pub mod cylinder {
 
         #[test]
         fn intersecting_constrained_cylinder() {
-            let cylinder = Cylinder::new(Matrix::identity(), Material::default(), 1., 2.);
+            let cylinder = Cylinder::new(Matrix::identity(), Material::default(), 1., 2., false);
             let examples = [
                 (Tuple::point(0., 1.5, 0.), Tuple::vector(0.1, 1., 0.), 0),
                 (Tuple::point(0., 3., -5.), Tuple::vector(0., 0., 1.), 0),
@@ -988,6 +1036,49 @@ pub mod cylinder {
                 let ray = Ray::new(point, direction);
                 let xs = cylinder.local_intersect(&ray);
                 assert_eq!(xs.len(), count);
+            }
+        }
+
+        #[test]
+        fn default_closed_cylinder_false() {
+            let cylinder = Cylinder::default();
+            assert!(!cylinder.closed);
+        }
+
+        #[test]
+        fn intersecting_caps_of_closed_cylinder() {
+            let cylinder = Cylinder::new(Matrix::identity(), Material::default(), 1., 2., true);
+            let examples = [
+                (Tuple::point(0., 3., 0.), Tuple::vector(0., -1., 0.), 2),
+                (Tuple::point(0., 3., -2.), Tuple::vector(0., -1., 2.), 2),
+                (Tuple::point(0., 4., -2.), Tuple::vector(0., -1., 1.), 2),
+                (Tuple::point(0., 0., -2.), Tuple::vector(0., 1., 2.), 2),
+                (Tuple::point(0., -1., -2.), Tuple::vector(0., 1., 1.), 2),
+            ];
+
+            for (point, direction, count) in examples {
+                let direction = direction.norm();
+                let ray = Ray::new(point, direction);
+                let xs = cylinder.local_intersect(&ray);
+                assert_eq!(xs.len(), count);
+            }
+        }
+
+        #[test]
+        fn normal_vector_on_cylinders_end_caps() {
+            let cylinder = Cylinder::new(Matrix::identity(), Material::default(), 1., 2., true);
+            let examples = [
+                (Tuple::point(0., 1., 0.), Tuple::vector(0., -1., 0.)),
+                (Tuple::point(0.5, 1., 0.), Tuple::vector(0., -1., 0.)),
+                (Tuple::point(0., 1., 0.5), Tuple::vector(0., -1., 0.)),
+                (Tuple::point(0., 2., 0.), Tuple::vector(0., 1., 0.)),
+                (Tuple::point(0.5, 2., 0.), Tuple::vector(0., 1., 0.)),
+                (Tuple::point(0., 2., 0.5), Tuple::vector(0., 1., 0.)),
+            ];
+
+            for (point, expected_normal) in examples {
+                let normal = cylinder.local_normal_at(point);
+                assert_eq!(expected_normal, normal);
             }
         }
     }

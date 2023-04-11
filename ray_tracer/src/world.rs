@@ -248,7 +248,7 @@ mod tests {
         let world = World::default();
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let shape = &world.objects[0];
-        let intersection = shape.arbitrary_intersection(4.);
+        let intersection = Intersection::new(4., shape.clone());
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();
@@ -265,7 +265,7 @@ mod tests {
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
 
         let shape = &world.objects[1];
-        let intersection = shape.arbitrary_intersection(0.5);
+        let intersection = Intersection::new(0.5, shape.clone());
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();
@@ -392,7 +392,7 @@ mod tests {
         };
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
 
-        let intersection = &world.objects[1].arbitrary_intersection(1.);
+        let intersection = Intersection::new(1., world.objects[1].clone());
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();
@@ -428,7 +428,7 @@ mod tests {
 
         let val = 2.0_f64.sqrt() / 2.;
         let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
-        let intersection = &world.objects[2].arbitrary_intersection(2.0_f64.sqrt());
+        let intersection = Intersection::new(2.0_f64.sqrt(), world.objects[2].clone());
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();
@@ -471,7 +471,7 @@ mod tests {
 
         let val = 2.0_f64.sqrt() / 2.;
         let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
-        let intersection = &world.objects[2].arbitrary_intersection(2.0_f64.sqrt());
+        let intersection = Intersection::new(2.0_f64.sqrt(), world.objects[2].clone());
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
             .unwrap();

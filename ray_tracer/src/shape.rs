@@ -57,11 +57,6 @@ pub trait Shape: Intersect + Send + Sync + ShapeClone {
         Material::default()
     }
 
-    /// Gets an intersection with an arbitrary t for this object.
-    /// This is needed primarily for testing, because we can't construct
-    /// an intersection with a boxed trait object due to type incompatibility.
-    fn arbitrary_intersection(&self, t: f64) -> Intersection;
-
     /// Sets the object material to the given material.
     /// Needed primarily for testing.
     fn set_material(&mut self, material: Material);
@@ -192,13 +187,6 @@ pub mod sphere {
 
         fn material(&self) -> Material {
             self.material.clone()
-        }
-
-        fn arbitrary_intersection(&self, t: f64) -> Intersection {
-            Intersection {
-                t,
-                object: Box::new(self.to_owned()),
-            }
         }
 
         fn set_material(&mut self, material: Material) {
@@ -447,13 +435,6 @@ pub mod plane {
     }
 
     impl Shape for Plane {
-        fn arbitrary_intersection(&self, t: f64) -> Intersection {
-            Intersection {
-                t,
-                object: Box::new(self.to_owned()),
-            }
-        }
-
         fn transformation(&self) -> Matrix {
             self.transformation.clone()
         }
@@ -623,10 +604,6 @@ pub mod cube {
     }
 
     impl Shape for Cube {
-        fn arbitrary_intersection(&self, t: f64) -> Intersection {
-            Intersection::new(t, Box::new(self.clone()))
-        }
-
         fn id(&self) -> usize {
             self.id
         }
@@ -896,10 +873,6 @@ pub mod cylinder {
             ShapeType::Cylinder
         }
 
-        fn arbitrary_intersection(&self, t: f64) -> Intersection {
-            Intersection::new(t, Box::new(self.clone()))
-        }
-
         fn material(&self) -> Material {
             self.material.clone()
         }
@@ -1084,6 +1057,60 @@ pub mod cylinder {
     }
 }
 
+// pub mod cone {
+//     use super::*;
+
+//     #[derive(Debug, Clone)]
+//     pub struct Cone {
+//         id: usize,
+//         transformation: Matrix,
+//         material: Material,
+//         minimum: f64,
+//         maximum: f64,
+//         closed: bool,
+//     }
+
+//     impl Cone {
+//         pub fn new(
+//             transformation: Matrix,
+//             material: Material,
+//             minimum: f64,
+//             maximum: f64,
+//             closed: bool,
+//         ) -> Self {
+//             static COUNTER: AtomicUsize = AtomicUsize::new(1);
+//             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+//             Self {
+//                 id,
+//                 transformation,
+//                 material,
+//                 minimum,
+//                 maximum,
+//                 closed,
+//             }
+//         }
+//     }
+
+//     impl Default for Cone {
+//         fn default() -> Self {
+//             Self::new(
+//                 Matrix::identity(),
+//                 Material::default(),
+//                 -f64::INFINITY,
+//                 f64::INFINITY,
+//                 false,
+//             )
+//         }
+//     }
+
+//     impl Shape for Cone {
+//         fn id(&self) -> usize {
+//             self.id
+//         }
+
+//     }
+// }
+
 #[cfg(test)]
 mod tests {
 
@@ -1133,10 +1160,6 @@ mod tests {
 
         fn shape_type(&self) -> ShapeType {
             ShapeType::TestShape
-        }
-
-        fn arbitrary_intersection(&self, _t: f64) -> Intersection {
-            unimplemented!()
         }
 
         fn material(&self) -> Material {

@@ -61,9 +61,13 @@ you have to box them at every step. The whole things feels very not Rusty.
 In addition, it feels like some of the patterns are not implemented correctly. For example,
 the `BlendedPattern` does not seem to do much.
 
+### Cones
+
+The end cap of a cone gets rendered even if it is beyond the cones minimum/maximum. All the tests for cones pass,
+but this is obviously broken.
+
 ## Ideas for future improvements/enhancements
 
-- The ray tracer technically supports multiple light sources, but rendering scenes with more than one light source is very slow
-and seems somewhat broken.
+- The ray tracer technically supports multiple light sources, but rendering scenes with more than one light source is slow.
 - The YAML format to describe scenes as specified by the book doesn't include support for material patterns. I need to
   figure out how to extend it so that all the pattern code doesn't just go to waste.

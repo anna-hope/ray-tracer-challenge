@@ -559,6 +559,23 @@ fn construct_object(
                 closed,
             ))
         }
+        "cone" => {
+            // ditto for cones
+            let minimum = get_or_default_f64!(description, "minimum", -f64::INFINITY);
+            let maximum = get_or_default_f64!(description, "maximum", f64::INFINITY);
+            let closed = description
+                .get("closed")
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false);
+
+            Box::new(cone::Cone::new(
+                transformation,
+                material,
+                minimum,
+                maximum,
+                closed,
+            ))
+        }
         _ => unimplemented!(),
     };
 
@@ -585,7 +602,7 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
                         let light = construct_light(mapping)?;
                         lights.push(light);
                     }
-                    "sphere" | "plane" | "cube" | "cylinder" => {
+                    "sphere" | "plane" | "cube" | "cylinder" | "cone" => {
                         let object = construct_object(item_type.as_str(), mapping, &definitions)?;
                         objects.push(object);
                     }

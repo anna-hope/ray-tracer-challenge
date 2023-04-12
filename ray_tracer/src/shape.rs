@@ -13,6 +13,7 @@ pub enum ShapeType {
     Plane,
     Cube,
     Cylinder,
+    Cone,
     TestShape,
 }
 pub trait ShapeClone {
@@ -1057,59 +1058,250 @@ pub mod cylinder {
     }
 }
 
-// pub mod cone {
-//     use super::*;
+pub mod cone {
+    use std::mem;
 
-//     #[derive(Debug, Clone)]
-//     pub struct Cone {
-//         id: usize,
-//         transformation: Matrix,
-//         material: Material,
-//         minimum: f64,
-//         maximum: f64,
-//         closed: bool,
-//     }
+    use crate::{equal, EPSILON};
 
-//     impl Cone {
-//         pub fn new(
-//             transformation: Matrix,
-//             material: Material,
-//             minimum: f64,
-//             maximum: f64,
-//             closed: bool,
-//         ) -> Self {
-//             static COUNTER: AtomicUsize = AtomicUsize::new(1);
-//             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-//             Self {
-//                 id,
-//                 transformation,
-//                 material,
-//                 minimum,
-//                 maximum,
-//                 closed,
-//             }
-//         }
-//     }
+    use super::*;
 
-//     impl Default for Cone {
-//         fn default() -> Self {
-//             Self::new(
-//                 Matrix::identity(),
-//                 Material::default(),
-//                 -f64::INFINITY,
-//                 f64::INFINITY,
-//                 false,
-//             )
-//         }
-//     }
+    #[derive(Debug, Clone)]
+    pub struct Cone {
+        id: usize,
+        transformation: Matrix,
+        material: Material,
+        minimum: f64,
+        maximum: f64,
+        closed: bool,
+    }
 
-//     impl Shape for Cone {
-//         fn id(&self) -> usize {
-//             self.id
-//         }
+    impl Cone {
+        pub fn new(
+            transformation: Matrix,
+            material: Material,
+            minimum: f64,
+            maximum: f64,
+            closed: bool,
+        ) -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(1);
+            let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+            Self {
+                id,
+                transformation,
+                material,
+                minimum,
+                maximum,
+                closed,
+            }
+        }
 
-//     }
-// }
+        fn local_intersect(&self, ray: &Ray) -> Vec<Intersection> {
+            let a = ray.direction.x.powi(2) - ray.direction.y.powi(2) + ray.direction.z.powi(2);
+            let b = 2. * ray.origin.x * ray.direction.x - 2. * ray.origin.y * ray.direction.y
+                + 2. * ray.origin.z * ray.direction.z;
+            let c = ray.origin.x.powi(2) - ray.origin.y.powi(2) + ray.origin.z.powi(2);
+
+            // ray is parallel to the y axis
+            if equal(a, 0.) {
+                if self.closed {
+                    self.intersect_caps(ray)
+                } else {
+                    let t = -c / (2. * b);
+                    vec![Intersection::new(t, Box::new(self.clone()))]
+                }
+            } else {
+                let discriminant = b.powi(2) - 4. * a * c;
+
+                // ray does not intersect the cylinder
+                if discriminant < 0. {
+                    return vec![];
+                }
+
+                let mut t0 = (-b - discriminant.sqrt()) / (2. * a);
+                let mut t1 = (-b + discriminant.sqrt()) / (2. * a);
+
+                if t0 > t1 {
+                    mem::swap(&mut t0, &mut t1);
+                }
+
+                let mut intersections = vec![];
+                let y0 = ray.origin.y + t0 * ray.direction.y;
+
+                if self.minimum < y0 && y0 < self.maximum {
+                    intersections.push(Intersection::new(t0, Box::new(self.clone())));
+                }
+
+                let y1 = ray.origin.y + t1 * ray.direction.y;
+                if self.minimum < y1 && y1 < self.maximum {
+                    intersections.push(Intersection::new(t1, Box::new(self.clone())));
+                }
+
+                let mut intersections_caps = self.intersect_caps(ray);
+                intersections.append(&mut intersections_caps);
+
+                intersections
+            }
+        }
+
+        fn intersect_caps(&self, ray: &Ray) -> Vec<Intersection> {
+            let mut intersections = vec![];
+
+            // caps only matter if the cone is closed, and might possibly be intersected by the ray
+            if !self.closed || equal(ray.direction.y, 0.) {
+                return intersections;
+            }
+
+            // check for an intersection with the lower end cap
+            let t = (self.minimum.abs() - ray.origin.y) / ray.direction.y;
+            if ray.check_cap(t, self.minimum.abs()) {
+                intersections.push(Intersection::new(t, Box::new(self.clone())));
+            }
+
+            // check for an intersection with the upper end cap
+            let t = (self.maximum.abs() - ray.origin.y) / ray.direction.y;
+            if ray.check_cap(t, self.maximum.abs()) {
+                intersections.push(Intersection::new(t, Box::new(self.clone())));
+            }
+
+            intersections
+        }
+    }
+
+    impl Default for Cone {
+        fn default() -> Self {
+            Self::new(
+                Matrix::identity(),
+                Material::default(),
+                -f64::INFINITY,
+                f64::INFINITY,
+                false,
+            )
+        }
+    }
+
+    impl Shape for Cone {
+        fn id(&self) -> usize {
+            self.id
+        }
+
+        fn local_normal_at(&self, point: Tuple) -> Tuple {
+            let distance = point.x.powi(2) + point.z.powi(2);
+
+            if distance < 1. && point.y >= self.maximum - EPSILON {
+                Tuple::vector(0., 1., 0.)
+            } else if distance < 1. && point.y <= self.minimum + EPSILON {
+                Tuple::vector(0., -1., 0.)
+            } else {
+                let y = (point.x.powi(2) + point.z.powi(2)).sqrt();
+                let y = if point.y > 0. { -y } else { y };
+                Tuple::vector(point.x, y, point.z)
+            }
+        }
+
+        fn material(&self) -> Material {
+            self.material.clone()
+        }
+
+        fn set_material(&mut self, material: Material) {
+            self.material = material;
+        }
+
+        fn shape_type(&self) -> ShapeType {
+            ShapeType::Cone
+        }
+
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
+    }
+
+    impl Intersect for Cone {
+        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            let local_ray = ray.transform(self.transformation.inverse()?);
+            Ok(self.local_intersect(&local_ray))
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn intersecting_cone_with_ray() {
+            let shape = Cone::default();
+            let examples = [
+                (Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.), 5., 5.),
+                (
+                    Tuple::point(0., 0., -5.),
+                    Tuple::vector(1., 1., 1.),
+                    8.66025,
+                    8.66025,
+                ),
+                (
+                    Tuple::point(1., 1., -5.),
+                    Tuple::vector(-0.5, -1., 1.),
+                    4.55006,
+                    49.44994,
+                ),
+            ];
+
+            for (origin, direction, t0, t1) in examples {
+                let direction = direction.norm();
+                let ray = Ray::new(origin, direction);
+                let xs = shape.local_intersect(&ray);
+
+                assert_eq!(xs.len(), 2);
+                assert!(equal(xs[0].t, t0));
+                assert!(equal(xs[1].t, t1));
+            }
+        }
+
+        #[test]
+        fn intersect_cone_with_ray_parallel_to_one_of_its_halves() {
+            let shape = Cone::default();
+            let direction = Tuple::vector(0., 1., 1.).norm();
+            let ray = Ray::new(Tuple::point(0., 0., -1.), direction);
+            let xs = shape.local_intersect(&ray);
+            assert_eq!(xs.len(), 1);
+            assert!(equal(xs[0].t, 0.35355));
+        }
+
+        #[test]
+        fn intersecting_cones_end_caps() {
+            let shape = Cone::new(Matrix::identity(), Material::default(), -0.5, 0.5, true);
+            let examples = [
+                (Tuple::point(0., 0., -5.), Tuple::vector(0., 1., 0.), 0),
+                (Tuple::point(0., 0., -0.25), Tuple::vector(0., 1., 1.), 2),
+                (Tuple::point(0., 0., -0.25), Tuple::vector(0., 1., 0.), 4),
+            ];
+
+            for (origin, direction, count) in examples {
+                let direction = direction.norm();
+                let ray = Ray::new(origin, direction);
+                let xs = shape.local_intersect(&ray);
+                assert_eq!(xs.len(), count);
+            }
+        }
+
+        #[test]
+        fn compute_normal_vector_on_cone() {
+            let shape = Cone::default();
+            let examples = [
+                (Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 0.)),
+                (
+                    Tuple::point(1., 1., 1.),
+                    Tuple::vector(1., -2.0_f64.sqrt(), 1.),
+                ),
+                (Tuple::point(-1., -1., 0.), Tuple::vector(-1., 1., 0.)),
+            ];
+
+            for (point, expected_normal) in examples {
+                let normal = shape.local_normal_at(point);
+                assert_eq!(expected_normal, normal);
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

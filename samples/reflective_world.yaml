@@ -1,8 +1,8 @@
 # the camera
 
 - add: camera
-  width: 5000
-  height: 2500
+  width: 1000
+  height: 500
   field-of-view: 1.0471975512
   from: [0, 5, -7]
   to: [0, 2, 0]
@@ -30,9 +30,9 @@
     reflective: 0.3
     color: [0, 0.7490196078, 1]
 
-# the spheres
+# the objects
 
-# middle sphere
+# middle
 
 - add: sphere
   material:
@@ -46,8 +46,12 @@
   transform:
     - [translate, -0.5, 1, 0.5]
 
-# right sphere
-- add: sphere
+# right cylinder
+
+- add: cylinder
+  minimum: -1
+  maximum: 5
+  closed: true
   material:
     color: [1, 0, 1]
     diffuse: 0.7
@@ -58,6 +62,7 @@
     - [translate, 1.5, 0.5, -0.5]
 
 # left cube
+
 - add: cube
   material:
     color: [0, 0.75, 1]
@@ -66,3 +71,12 @@
   transform:
     - [scale, 0.33, 0.33, 0.33]
     - [translate, -1.5, 0.33, -0.75]
+
+# cone
+- add: cone
+  material: {}
+  minimum: -1
+  maximum: 0
+  closed: false
+  transform:
+    - [translate, 0, 1, 0]

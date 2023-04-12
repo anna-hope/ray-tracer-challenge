@@ -1,0 +1,38 @@
+# the camera
+
+- add: camera
+  width: 1000
+  height: 500
+  field-of-view: 1.0471975512
+  from: [0, 5, -7]
+  to: [0, 2, 0]
+  up: [0, 1, 0]
+
+# the lights
+- add: light
+  at: [-10, 10, -10]
+  intensity: [1, 1, 1]
+
+# the cone
+- add: cone
+  material:
+    color: [0.956, 0.643, 0.376]
+    ambient: 0.1
+    diffuse: 0.7
+    specular: 0.3
+  minimum: 0
+  maximum: 2
+  transform:
+    - [scale, 0.5, 1.5, 1]
+    - [translate, 0, -0.5, 0]
+
+# the strawberry ice cream
+- add: sphere
+  material:
+    color: [0.953, 0.412, 0.506]
+    diffuse: 0.7
+    specular: 0.3
+    ambient: 0.1
+  transform:
+    - [translate, 0, 3, -0.5]
+    - [scale, 0.9, 0.9, 0.9]

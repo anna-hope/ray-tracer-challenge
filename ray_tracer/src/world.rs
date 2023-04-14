@@ -665,6 +665,7 @@ mod tests {
                 ambient: 0.5,
                 ..Default::default()
             },
+            None,
         );
         world.objects.push(Box::new(ball));
 
@@ -697,6 +698,7 @@ mod tests {
                 ambient: 0.5,
                 ..Default::default()
             },
+            None,
         );
         world.objects.push(Box::new(ball));
 

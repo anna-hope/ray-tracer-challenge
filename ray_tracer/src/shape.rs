@@ -1,11 +1,22 @@
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+
+use lazy_static::lazy_static;
+use parking_lot::RwLock;
+use slotmap::{DefaultKey, SlotMap};
 
 use crate::{
     intersection::{Intersect, Intersection, Ray},
     material::Material,
     Matrix, Result, Tuple,
 };
+
+type ShapeRef = Arc<dyn Shape>;
+
+lazy_static! {
+    static ref SHAPES: RwLock<SlotMap<DefaultKey, ShapeRef>> = RwLock::new(SlotMap::new());
+}
 
 #[derive(Debug, PartialEq)]
 pub enum ShapeType {
@@ -14,6 +25,7 @@ pub enum ShapeType {
     Cube,
     Cylinder,
     Cone,
+    Group,
     TestShape,
 }
 pub trait ShapeClone {
@@ -32,14 +44,9 @@ where
 pub trait Shape: Intersect + Send + Sync + ShapeClone {
     /// Computes the normal vector at the world point.
     fn normal_at(&self, point: Tuple) -> Result<Tuple> {
-        let transformation_inverse = self.transformation().inverse()?;
-        let local_point = transformation_inverse.clone() * point;
+        let local_point = self.world_to_object(point)?;
         let local_normal = self.local_normal_at(local_point);
-        let mut world_normal = transformation_inverse.transpose() * local_normal;
-
-        // hack to avoid having to find the submatrix of the transformation
-        world_normal.w = 0.;
-        Ok(world_normal.norm())
+        self.normal_to_world(local_normal)
     }
 
     /// Computes the local normal for a given point.
@@ -61,6 +68,40 @@ pub trait Shape: Intersect + Send + Sync + ShapeClone {
     /// Sets the object material to the given material.
     /// Needed primarily for testing.
     fn set_material(&mut self, material: Material);
+
+    fn parent(&self) -> Option<DefaultKey>;
+
+    fn set_parent(&mut self, parent: DefaultKey);
+
+    fn world_to_object(&self, point: Tuple) -> Result<Tuple> {
+        let point = if let Some(parent_key) = self.parent() {
+            let shapes = SHAPES.read();
+            let parent = Arc::clone(&shapes[parent_key]);
+            parent.world_to_object(point)?
+        } else {
+            point
+        };
+
+        Ok(self.transformation().inverse()? * point)
+    }
+
+    fn normal_to_world(&self, normal: Tuple) -> Result<Tuple> {
+        let mut normal = self.transformation().inverse()?.transpose() * normal;
+        normal.w = 0.;
+        normal = normal.norm();
+
+        if let Some(parent_key) = self.parent() {
+            let shapes = SHAPES.read();
+            let parent = Arc::clone(&shapes[parent_key]);
+            normal = parent.normal_to_world(normal)?;
+        }
+
+        Ok(normal)
+    }
+
+    fn add_child(&self, _child: &mut ShapeRef) {
+        unimplemented!()
+    }
 }
 
 impl PartialEq for dyn Shape {
@@ -84,26 +125,37 @@ impl Clone for Box<dyn Shape> {
     }
 }
 
+/// Inserts the Arc pointer to the given shape into SHAPES SlotMap.
+/// This is typically needed to be called explicitly only for root shapes (`Group`),
+/// as child groups/shapes will be inserted into the SlotMap automatically
+/// when they are passed to `Group.add_child`.
+pub fn insert_shape(shape: Arc<dyn Shape>) -> DefaultKey {
+    let mut shapes = SHAPES.write();
+    shapes.insert(shape)
+}
+
 pub mod sphere {
 
     use super::*;
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone)]
     pub struct Sphere {
         id: usize,
         transformation: Matrix,
         material: Material,
+        parent: Option<DefaultKey>,
     }
 
     impl Sphere {
         /// Instantiates a new Sphere with an auto-incrementing id.
-        pub fn new(transformation: Matrix, material: Material) -> Self {
+        pub fn new(transformation: Matrix, material: Material, parent: Option<DefaultKey>) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
             Self {
                 id,
                 transformation,
                 material,
+                parent,
             }
         }
 
@@ -116,7 +168,11 @@ pub mod sphere {
                 refractive_index: 1.5,
                 ..Default::default()
             };
-            Self::new(transformation, material)
+            Self {
+                transformation,
+                material,
+                ..Default::default()
+            }
         }
 
         pub fn with_transformation(mut self, transformation: Matrix) -> Self {
@@ -128,24 +184,8 @@ pub mod sphere {
             self.material = material;
             self
         }
-    }
 
-    impl Default for Sphere {
-        fn default() -> Self {
-            let transformation = Matrix::identity();
-            let material = Material::default();
-            Self::new(transformation, material)
-        }
-    }
-
-    impl Intersect for Sphere {
-        /// Calculates the intersection of a sphere and a ray
-        /// Returns a Vec of two elements if there is an intersection
-        /// (even if it's only in one point, in which case the values would be the same)
-        /// or an empty Vec if there is no intersection.
-        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
-            let ray = ray.transform(self.transformation.inverse()?);
-
+        fn local_intersect(&self, ray: &Ray) -> Vec<Intersection> {
             // the vector from the sphere's center, to the ray origin
             // (the sphere is centered at the world origin)
             // (subtracting a point from a point gives us a vector)
@@ -158,7 +198,7 @@ pub mod sphere {
 
             let discriminant = b.powi(2) - 4. * a * c;
             if discriminant < 0. {
-                return Ok(vec![]);
+                return vec![];
             }
 
             let t1 = (-b - discriminant.sqrt()) / (2. * a);
@@ -166,7 +206,26 @@ pub mod sphere {
 
             let i1 = Intersection::new(t1, Box::new(self.to_owned()));
             let i2 = Intersection::new(t2, Box::new(self.to_owned()));
-            Ok(vec![i1, i2])
+            vec![i1, i2]
+        }
+    }
+
+    impl Default for Sphere {
+        fn default() -> Self {
+            let transformation = Matrix::identity();
+            let material = Material::default();
+            Self::new(transformation, material, None)
+        }
+    }
+
+    impl Intersect for Sphere {
+        /// Calculates the intersection of a sphere and a ray
+        /// Returns a Vec of two elements if there is an intersection
+        /// (even if it's only in one point, in which case the values would be the same)
+        /// or an empty Vec if there is no intersection.
+        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            let ray = ray.transform(self.transformation.inverse()?);
+            Ok(self.local_intersect(&ray))
         }
     }
 
@@ -192,6 +251,14 @@ pub mod sphere {
 
         fn set_material(&mut self, material: Material) {
             self.material = material;
+        }
+
+        fn parent(&self) -> Option<DefaultKey> {
+            self.parent
+        }
+
+        fn set_parent(&mut self, parent: DefaultKey) {
+            self.parent = Some(parent);
         }
     }
 
@@ -387,16 +454,18 @@ pub mod plane {
         id: usize,
         transformation: Matrix,
         material: Material,
+        parent: Option<DefaultKey>,
     }
 
     impl Plane {
-        pub fn new(transformation: Matrix, material: Material) -> Self {
+        pub fn new(transformation: Matrix, material: Material, parent: Option<DefaultKey>) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
             Self {
                 id,
                 transformation,
                 material,
+                parent,
             }
         }
 
@@ -424,7 +493,7 @@ pub mod plane {
         fn default() -> Self {
             let transformation = Matrix::identity();
             let material = Material::default();
-            Self::new(transformation, material)
+            Self::new(transformation, material, None)
         }
     }
 
@@ -459,6 +528,14 @@ pub mod plane {
 
         fn set_material(&mut self, material: Material) {
             self.material = material;
+        }
+
+        fn parent(&self) -> Option<DefaultKey> {
+            self.parent
+        }
+
+        fn set_parent(&mut self, parent: DefaultKey) {
+            self.parent = Some(parent);
         }
     }
 
@@ -527,16 +604,18 @@ pub mod cube {
         id: usize,
         transformation: Matrix,
         material: Material,
+        parent: Option<DefaultKey>,
     }
 
     impl Cube {
-        pub fn new(transformation: Matrix, material: Material) -> Self {
+        pub fn new(transformation: Matrix, material: Material, parent: Option<DefaultKey>) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
             Self {
                 id,
                 transformation,
                 material,
+                parent,
             }
         }
 
@@ -600,7 +679,7 @@ pub mod cube {
 
     impl Default for Cube {
         fn default() -> Self {
-            Self::new(Matrix::identity(), Material::default())
+            Self::new(Matrix::identity(), Material::default(), None)
         }
     }
 
@@ -640,6 +719,14 @@ pub mod cube {
 
         fn set_material(&mut self, material: Material) {
             self.material = material
+        }
+
+        fn parent(&self) -> Option<DefaultKey> {
+            self.parent
+        }
+
+        fn set_parent(&mut self, parent: DefaultKey) {
+            self.parent = Some(parent);
         }
     }
 
@@ -776,6 +863,7 @@ pub mod cylinder {
         minimum: f64,
         maximum: f64,
         closed: bool,
+        parent: Option<DefaultKey>,
     }
 
     impl Cylinder {
@@ -785,6 +873,7 @@ pub mod cylinder {
             minimum: f64,
             maximum: f64,
             closed: bool,
+            parent: Option<DefaultKey>,
         ) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -795,6 +884,7 @@ pub mod cylinder {
                 minimum,
                 maximum,
                 closed,
+                parent,
             }
         }
 
@@ -902,6 +992,14 @@ pub mod cylinder {
                 Tuple::vector(point.x, 0., point.z)
             }
         }
+
+        fn parent(&self) -> Option<DefaultKey> {
+            self.parent
+        }
+
+        fn set_parent(&mut self, parent: DefaultKey) {
+            self.parent = Some(parent);
+        }
     }
 
     impl Intersect for Cylinder {
@@ -919,6 +1017,7 @@ pub mod cylinder {
                 -f64::INFINITY,
                 f64::INFINITY,
                 false,
+                None,
             )
         }
     }
@@ -995,7 +1094,8 @@ pub mod cylinder {
 
         #[test]
         fn intersecting_constrained_cylinder() {
-            let cylinder = Cylinder::new(Matrix::identity(), Material::default(), 1., 2., false);
+            let cylinder =
+                Cylinder::new(Matrix::identity(), Material::default(), 1., 2., false, None);
             let examples = [
                 (Tuple::point(0., 1.5, 0.), Tuple::vector(0.1, 1., 0.), 0),
                 (Tuple::point(0., 3., -5.), Tuple::vector(0., 0., 1.), 0),
@@ -1021,7 +1121,8 @@ pub mod cylinder {
 
         #[test]
         fn intersecting_caps_of_closed_cylinder() {
-            let cylinder = Cylinder::new(Matrix::identity(), Material::default(), 1., 2., true);
+            let cylinder =
+                Cylinder::new(Matrix::identity(), Material::default(), 1., 2., true, None);
             let examples = [
                 (Tuple::point(0., 3., 0.), Tuple::vector(0., -1., 0.), 2),
                 (Tuple::point(0., 3., -2.), Tuple::vector(0., -1., 2.), 2),
@@ -1040,7 +1141,8 @@ pub mod cylinder {
 
         #[test]
         fn normal_vector_on_cylinders_end_caps() {
-            let cylinder = Cylinder::new(Matrix::identity(), Material::default(), 1., 2., true);
+            let cylinder =
+                Cylinder::new(Matrix::identity(), Material::default(), 1., 2., true, None);
             let examples = [
                 (Tuple::point(0., 1., 0.), Tuple::vector(0., -1., 0.)),
                 (Tuple::point(0.5, 1., 0.), Tuple::vector(0., -1., 0.)),
@@ -1073,6 +1175,7 @@ pub mod cone {
         minimum: f64,
         maximum: f64,
         closed: bool,
+        parent: Option<DefaultKey>,
     }
 
     impl Cone {
@@ -1082,6 +1185,7 @@ pub mod cone {
             minimum: f64,
             maximum: f64,
             closed: bool,
+            parent: Option<DefaultKey>,
         ) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -1092,6 +1196,7 @@ pub mod cone {
                 minimum,
                 maximum,
                 closed,
+                parent,
             }
         }
 
@@ -1175,6 +1280,7 @@ pub mod cone {
                 -f64::INFINITY,
                 f64::INFINITY,
                 false,
+                None,
             )
         }
     }
@@ -1212,6 +1318,14 @@ pub mod cone {
 
         fn transformation(&self) -> Matrix {
             self.transformation.clone()
+        }
+
+        fn parent(&self) -> Option<DefaultKey> {
+            self.parent
+        }
+
+        fn set_parent(&mut self, parent: DefaultKey) {
+            self.parent = Some(parent);
         }
     }
 
@@ -1268,7 +1382,14 @@ pub mod cone {
 
         #[test]
         fn intersecting_cones_end_caps() {
-            let shape = Cone::new(Matrix::identity(), Material::default(), -0.5, 0.5, true);
+            let shape = Cone::new(
+                Matrix::identity(),
+                Material::default(),
+                -0.5,
+                0.5,
+                true,
+                None,
+            );
             let examples = [
                 (Tuple::point(0., 0., -5.), Tuple::vector(0., 1., 0.), 0),
                 (Tuple::point(0., 0., -0.25), Tuple::vector(0., 1., 1.), 2),
@@ -1303,24 +1424,250 @@ pub mod cone {
     }
 }
 
+pub mod group {
+    type GroupChildren = Arc<RwLock<Vec<DefaultKey>>>;
+
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct Group {
+        id: usize,
+        transformation: Matrix,
+        children: GroupChildren,
+        parent: Option<DefaultKey>,
+    }
+
+    impl Group {
+        pub fn new(
+            transformation: Matrix,
+            children: GroupChildren,
+            parent: Option<DefaultKey>,
+        ) -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(1);
+            let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+
+            Self {
+                id,
+                transformation,
+                children,
+                parent,
+            }
+        }
+
+        pub fn with_transformation(mut self, transformation: Matrix) -> Self {
+            self.transformation = transformation;
+            self
+        }
+
+        fn local_intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            let children = self.children.read();
+            let mut intersections = vec![];
+            let shapes = SHAPES.read();
+            for child_key in children.iter() {
+                let child = shapes.get(*child_key).unwrap();
+                let mut child_intersections = child.intersect(ray)?;
+                intersections.append(&mut child_intersections);
+            }
+
+            intersections.sort_unstable_by(|a, b| a.t.total_cmp(&b.t));
+            Ok(intersections)
+        }
+    }
+
+    impl Default for Group {
+        fn default() -> Self {
+            let children = Arc::new(RwLock::new(vec![]));
+            Self::new(Matrix::identity(), children, None)
+        }
+    }
+
+    impl Shape for Group {
+        fn id(&self) -> usize {
+            self.id
+        }
+
+        fn local_normal_at(&self, _: Tuple) -> Tuple {
+            unimplemented!()
+        }
+
+        fn material(&self) -> Material {
+            unimplemented!()
+        }
+
+        fn transformation(&self) -> Matrix {
+            self.transformation.clone()
+        }
+
+        fn set_material(&mut self, _: Material) {
+            unimplemented!()
+        }
+
+        fn shape_type(&self) -> ShapeType {
+            ShapeType::Group
+        }
+
+        fn parent(&self) -> Option<DefaultKey> {
+            self.parent
+        }
+
+        fn set_parent(&mut self, parent: DefaultKey) {
+            self.parent = Some(parent);
+        }
+
+        fn add_child(&self, child: &mut ShapeRef) {
+            {
+                let shapes = SHAPES.read();
+                let mut self_key: Option<DefaultKey> = None;
+                for (key, value) in shapes.iter() {
+                    if value.id() == self.id() && value.shape_type() == ShapeType::Group {
+                        self_key = Some(key);
+                    }
+                }
+
+                let self_key = self_key.expect("The group must be in SHAPES");
+                let child_shape =
+                    Arc::get_mut(child).expect("Must have a unique reference to the child");
+                child_shape.set_parent(self_key);
+            }
+
+            let child_key = insert_shape(Arc::clone(child));
+            let mut children = self.children.write();
+            children.push(child_key);
+        }
+    }
+
+    impl Intersect for Group {
+        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            let ray = ray.transform(self.transformation.inverse()?);
+            self.local_intersect(&ray)
+        }
+    }
+
+    impl Drop for Group {
+        fn drop(&mut self) {
+            println!("Dropping group {}", self.id);
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use crate::shape::sphere::Sphere;
+
+        use super::*;
+
+        #[test]
+        fn create_new_group() {
+            let group = Group::default();
+            assert_eq!(group.transformation, Matrix::identity());
+            let children = group.children.read();
+            assert!(children.is_empty());
+        }
+
+        #[test]
+        fn add_child_to_group() {
+            // a somewhat convoluted test to make sure that we can add shapes to a group
+            // that the group then has those shapes as their children
+            // that the parent(s) of the shapes refer to the same group
+            // and that the parent(s) of those shapes (being the same group)
+            // contain those shapes
+            let shape = super::super::tests::TestShape::default();
+
+            let group = Arc::new(Group::default());
+            let group_clone: ShapeRef = group.clone() as ShapeRef;
+            insert_shape(group_clone);
+
+            let mut shape: ShapeRef = Arc::new(shape);
+            group.add_child(&mut shape);
+
+            let children = group.children.read();
+            assert!(!children.is_empty());
+
+            let shapes = SHAPES.read();
+            let child_key = *children.first().unwrap();
+            let child = shapes.get(child_key).unwrap();
+
+            assert_eq!(shape.id(), child.id());
+            assert_eq!(shape.shape_type(), child.shape_type());
+
+            let parent_key = child.parent().unwrap();
+            let parent = shapes.get(parent_key).unwrap();
+            assert_eq!(parent.id(), group.id);
+        }
+
+        #[test]
+        fn intersect_ray_with_empty_group() {
+            let group = Group::default();
+            let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
+            let xs = group.local_intersect(&ray).unwrap();
+            assert!(xs.is_empty());
+        }
+
+        #[test]
+        fn intersecting_ray_with_nonempty_group() {
+            let s1 = Sphere::default();
+            let s2 = Sphere::default().with_transformation(Matrix::translation(0., 0., -3.));
+            let s3 = Sphere::default().with_transformation(Matrix::translation(5., 0., 0.));
+
+            let group = Arc::new(Group::default());
+            let group_clone: ShapeRef = Arc::clone(&group) as ShapeRef;
+            insert_shape(group_clone);
+
+            let mut s1: ShapeRef = Arc::new(s1);
+            let mut s2: ShapeRef = Arc::new(s2);
+            let mut s3: ShapeRef = Arc::new(s3);
+
+            group.add_child(&mut s1);
+            group.add_child(&mut s2);
+            group.add_child(&mut s3);
+
+            let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+            let xs = group.local_intersect(&ray).unwrap();
+
+            assert_eq!(xs.len(), 4);
+            assert_eq!(xs[0].object.id(), s2.id());
+            assert_eq!(xs[1].object.id(), s2.id());
+            assert_eq!(xs[2].object.id(), s1.id());
+            assert_eq!(xs[3].object.id(), s1.id());
+        }
+
+        #[test]
+        fn intersect_transformed_group() {
+            let shape = Sphere::default().with_transformation(Matrix::translation(5., 0., 0.));
+
+            let group = Arc::new(Group::default().with_transformation(Matrix::scaling(2., 2., 2.)));
+            let group_clone = Arc::clone(&group) as ShapeRef;
+            insert_shape(group_clone);
+
+            let mut shape: ShapeRef = Arc::new(shape);
+            group.add_child(&mut shape);
+
+            let ray = Ray::new(Tuple::point(10., 0., -10.), Tuple::vector(0., 0., 1.));
+            let xs = group.intersect(&ray).unwrap();
+            assert_eq!(xs.len(), 2);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
-    use super::*;
+    use super::{group::Group, sphere::Sphere, *};
 
     #[derive(Debug, Clone)]
-    struct TestShape {
+    pub struct TestShape {
         transformation: Matrix,
         material: Material,
+        parent: Option<DefaultKey>,
     }
 
     impl TestShape {
-        pub fn new() -> Self {
+        pub fn new(transformation: Matrix, material: Material, parent: Option<DefaultKey>) -> Self {
             Self {
-                transformation: Matrix::identity(),
-                material: Material::default(),
+                transformation,
+                material,
+                parent,
             }
         }
 
@@ -1332,6 +1679,12 @@ mod tests {
         pub fn with_material(mut self, material: Material) -> Self {
             self.material = material;
             self
+        }
+    }
+
+    impl Default for TestShape {
+        fn default() -> Self {
+            Self::new(Matrix::identity(), Material::default(), None)
         }
     }
 
@@ -1365,24 +1718,32 @@ mod tests {
         fn local_normal_at(&self, local_point: Tuple) -> Tuple {
             Tuple::point(local_point.x, local_point.y, local_point.z)
         }
+
+        fn parent(&self) -> Option<DefaultKey> {
+            self.parent
+        }
+
+        fn set_parent(&mut self, parent: DefaultKey) {
+            self.parent = Some(parent);
+        }
     }
 
     #[test]
     fn default_transformation() {
-        let shape = TestShape::new();
+        let shape = TestShape::default();
         assert_eq!(shape.transformation, Matrix::identity());
     }
 
     #[test]
     fn custom_transformation() {
         let transformation = Matrix::translation(2., 3., 4.);
-        let shape = TestShape::new().with_transformation(transformation.clone());
+        let shape = TestShape::default().with_transformation(transformation.clone());
         assert_eq!(shape.transformation, transformation);
     }
 
     #[test]
     fn default_material() {
-        let shape = TestShape::new();
+        let shape = TestShape::default();
         assert_eq!(shape.material, Material::default());
     }
 
@@ -1392,13 +1753,13 @@ mod tests {
             ambient: 1.,
             ..Default::default()
         };
-        let shape = TestShape::new().with_material(material.clone());
+        let shape = TestShape::default().with_material(material.clone());
         assert_eq!(shape.material, material);
     }
 
     #[test]
     fn compute_normal_on_translated_shape() {
-        let shape = TestShape::new().with_transformation(Matrix::translation(0., 1., 0.));
+        let shape = TestShape::default().with_transformation(Matrix::translation(0., 1., 0.));
         let normal = shape
             .normal_at(Tuple::point(0., 1.70711, -FRAC_1_SQRT_2))
             .unwrap();
@@ -1408,9 +1769,80 @@ mod tests {
     #[test]
     fn compute_normal_on_transformed_shape() {
         let transformation = Matrix::identity().rotate_z(PI / 2.).scale(1., 0.5, 1.);
-        let shape = TestShape::new().with_transformation(transformation);
+        let shape = TestShape::default().with_transformation(transformation);
         let val = 2.0_f64.sqrt() / 2.;
         let normal = shape.normal_at(Tuple::point(0., val, -val)).unwrap();
         assert_eq!(normal, Tuple::vector(0., 0.97014, -0.24254));
+    }
+
+    #[test]
+    fn shape_has_parent_field() {
+        let shape = TestShape::default();
+        assert!(shape.parent.is_none());
+    }
+
+    #[test]
+    fn convert_point_from_world_to_object_space() {
+        let mut sphere: ShapeRef =
+            Arc::new(Sphere::default().with_transformation(Matrix::translation(5., 0., 0.)));
+
+        let group1 = Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
+        let mut group2: ShapeRef =
+            Arc::new(Group::default().with_transformation(Matrix::scaling(2., 2., 2.)));
+
+        let group1_clone: ShapeRef = Arc::clone(&group1) as ShapeRef;
+        insert_shape(group1_clone);
+
+        group1.add_child(&mut group2);
+        group2.add_child(&mut sphere);
+
+        let point = sphere.world_to_object(Tuple::point(-2., 0., -10.)).unwrap();
+        assert_eq!(point, Tuple::point(0., 0., -1.));
+    }
+
+    #[test]
+    fn convert_normal_from_object_to_world_space() {
+        let group1 = Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
+        let group1_clone = Arc::clone(&group1) as ShapeRef;
+        insert_shape(group1_clone);
+
+        let mut group2: ShapeRef =
+            Arc::new(Group::default().with_transformation(Matrix::scaling(1., 2., 3.)));
+        group1.add_child(&mut group2);
+
+        let mut sphere: ShapeRef =
+            Arc::new(Sphere::default().with_transformation(Matrix::translation(5., 0., 0.)));
+        group2.add_child(&mut sphere);
+
+        let val = 3.0_f64.sqrt() / 3.;
+        let normal = sphere
+            .normal_to_world(Tuple::vector(val, val, val))
+            .unwrap();
+
+        // need more precise values (5 significant figures)
+        // than the book provides
+        // cf. book values (0.2857, 0.4286, -0.8571)
+        assert_eq!(normal, Tuple::vector(0.28571, 0.42857, -0.85714));
+    }
+
+    #[test]
+    fn find_normal_on_child_object() {
+        let group1: ShapeRef =
+            Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
+        insert_shape(Arc::clone(&group1));
+
+        let mut group2: ShapeRef =
+            Arc::new(Group::default().with_transformation(Matrix::scaling(1., 2., 3.)));
+        group1.add_child(&mut group2);
+
+        let mut sphere: ShapeRef =
+            Arc::new(Sphere::default().with_transformation(Matrix::translation(5., 0., 0.)));
+        group2.add_child(&mut sphere);
+
+        let normal = sphere
+            .normal_at(Tuple::point(1.7321, 1.1547, -5.5774))
+            .unwrap();
+        // cf. book values (0.2857, 0.4286, -0.8571)
+        assert_eq!(normal, Tuple::vector(0.2857, 0.42854, -0.85716));
     }
 }

@@ -1,20 +1,22 @@
+use std::sync::Arc;
+
 use crate::{
     intersection::{hit, Computations, Intersect, Intersection},
     light::Light,
     material::Material,
     shape::sphere::Sphere,
-    shape::Shape,
+    shape::ShapeRef,
     Color, Matrix, Ray, Result, Tuple,
 };
 
 #[derive(Debug)]
 pub struct World {
-    pub objects: Vec<Box<dyn Shape>>,
+    pub objects: Vec<ShapeRef>,
     pub lights: Vec<Light>,
 }
 
 impl World {
-    pub fn new(objects: Vec<Box<dyn Shape>>, lights: Vec<Light>) -> Self {
+    pub fn new(objects: Vec<ShapeRef>, lights: Vec<Light>) -> Self {
         Self { objects, lights }
     }
 
@@ -161,8 +163,8 @@ impl Default for World {
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
-        let sphere1 = Box::new(Sphere::default().with_material(material));
-        let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
+        let sphere1 = Arc::new(Sphere::default().with_material(material));
+        let sphere2 = Arc::new(Sphere::default().with_transformation(transformation));
 
         Self {
             lights: vec![light],
@@ -221,12 +223,12 @@ mod tests {
         // and that our Sphere values would get moved as soon as we pass them to the world
         // also, we need to explicitly assign those objects to the sphere
         // because if we just rely on the default ones, they'd have different id's
-        let boxed_sphere1: Box<dyn Shape> = Box::new(sphere1.clone());
-        let boxed_sphere2: Box<dyn Shape> = Box::new(sphere2.clone());
+        let boxed_sphere1: ShapeRef = Arc::new(sphere1.clone());
+        let boxed_sphere2: ShapeRef = Arc::new(sphere2.clone());
         world.objects = vec![boxed_sphere1, boxed_sphere2];
 
-        let boxed_sphere1: Box<dyn Shape> = Box::new(sphere1);
-        let boxed_sphere2: Box<dyn Shape> = Box::new(sphere2);
+        let boxed_sphere1: ShapeRef = Arc::new(sphere1);
+        let boxed_sphere2: ShapeRef = Arc::new(sphere2);
         assert!(world.objects.contains(&boxed_sphere1));
         assert!(world.objects.contains(&boxed_sphere2));
     }
@@ -278,9 +280,9 @@ mod tests {
     #[test]
     fn shade_hit_is_given_intersection_in_shadow() {
         let light = Light::new(Tuple::point(0., 0., -10.), Color::white());
-        let sphere1 = Box::<Sphere>::default();
+        let sphere1 = Arc::<Sphere>::default();
         let sphere2 =
-            Box::new(Sphere::default().with_transformation(Matrix::translation(0., 0., 10.)));
+            Arc::new(Sphere::default().with_transformation(Matrix::translation(0., 0., 10.)));
         let world = World {
             lights: vec![light],
             objects: vec![sphere1, sphere2.clone()],
@@ -320,12 +322,12 @@ mod tests {
         // pointing at the inner sphere.
         // We expect the hit to be on the inner sphere, and so return its color
         let mut world = World::default();
-        let outer = &mut world.objects[0];
+        let outer = Arc::get_mut(&mut world.objects[0]).unwrap();
         let mut outer_material = outer.material();
         outer_material.ambient = 1.;
         outer.set_material(outer_material);
 
-        let inner = &mut world.objects[1];
+        let inner = Arc::get_mut(&mut world.objects[1]).unwrap();
         let mut inner_material = inner.material();
         inner_material.ambient = 1.;
         inner.set_material(inner_material.clone());
@@ -383,8 +385,8 @@ mod tests {
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
-        let sphere1 = Box::new(Sphere::default().with_material(material));
-        let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
+        let sphere1 = Arc::new(Sphere::default().with_material(material));
+        let sphere2 = Arc::new(Sphere::default().with_transformation(transformation));
 
         let world = World {
             lights: vec![light],
@@ -412,8 +414,8 @@ mod tests {
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
-        let sphere1 = Box::new(Sphere::default().with_material(material));
-        let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
+        let sphere1 = Arc::new(Sphere::default().with_material(material));
+        let sphere2 = Arc::new(Sphere::default().with_transformation(transformation));
 
         let shape = Plane::default()
             .with_material(Material {
@@ -422,7 +424,7 @@ mod tests {
             })
             .with_transformation(Matrix::translation(0., -1., 0.));
         let world = World {
-            objects: vec![sphere1, sphere2, Box::new(shape)],
+            objects: vec![sphere1, sphere2, Arc::new(shape)],
             ..Default::default()
         };
 
@@ -455,8 +457,8 @@ mod tests {
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
-        let sphere1 = Box::new(Sphere::default().with_material(material));
-        let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
+        let sphere1 = Arc::new(Sphere::default().with_material(material));
+        let sphere2 = Arc::new(Sphere::default().with_transformation(transformation));
 
         let shape = Plane::default()
             .with_material(Material {
@@ -465,7 +467,7 @@ mod tests {
             })
             .with_transformation(Matrix::translation(0., -1., 0.));
         let world = World {
-            objects: vec![sphere1, sphere2, Box::new(shape)],
+            objects: vec![sphere1, sphere2, Arc::new(shape)],
             ..Default::default()
         };
 
@@ -494,12 +496,12 @@ mod tests {
 
         let transformation = Matrix::scaling(0.5, 0.5, 0.5);
 
-        let sphere1 = Box::new(Sphere::default().with_material(material));
-        let sphere2 = Box::new(Sphere::default().with_transformation(transformation));
+        let sphere1 = Arc::new(Sphere::default().with_material(material));
+        let sphere2 = Arc::new(Sphere::default().with_transformation(transformation));
 
         let light = Light::new(Tuple::point(0., 0., 0.), Color::new(1., 1., 1.));
 
-        let lower = Box::new(
+        let lower = Arc::new(
             Plane::default()
                 .with_material(Material {
                     reflectivity: 1.,
@@ -507,7 +509,7 @@ mod tests {
                 })
                 .with_transformation(Matrix::translation(0., -1., 0.)),
         );
-        let upper = Box::new(
+        let upper = Arc::new(
             Plane::default()
                 .with_material(Material {
                     reflectivity: 1.,
@@ -527,7 +529,7 @@ mod tests {
     #[test]
     fn reflected_color_at_maximum_recursive_depth() {
         let mut world = World::default();
-        let shape = Box::new(
+        let shape = Arc::new(
             Plane::default()
                 .with_material(Material {
                     reflectivity: 0.5,
@@ -565,13 +567,14 @@ mod tests {
     #[test]
     fn refracted_color_at_maximum_recursive_depth() {
         let mut world = World::default();
-        let shape = &mut world.objects[0];
+        let shape = Arc::get_mut(&mut world.objects[0]).unwrap();
         let mut material = shape.material();
         material.transparency = 1.;
         material.refractive_index = 1.5;
         shape.set_material(material);
 
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let shape = Arc::clone(&world.objects[0]);
         let xs = &[
             Intersection::new(4., shape.clone()),
             Intersection::new(6., shape.clone()),
@@ -585,7 +588,7 @@ mod tests {
     #[test]
     fn refracted_color_under_total_internal_reflection() {
         let mut world = World::default();
-        let shape = &mut world.objects[0];
+        let shape = Arc::get_mut(&mut world.objects[0]).unwrap();
         let mut material = shape.material();
         material.transparency = 1.;
         material.refractive_index = 1.5;
@@ -593,6 +596,7 @@ mod tests {
 
         let val = 2.0_f64.sqrt() / 2.;
         let ray = Ray::new(Tuple::point(0., 0., val), Tuple::vector(0., 1., 0.));
+        let shape = Arc::clone(&world.objects[0]);
         let xs = &[
             Intersection::new(-val, shape.clone()),
             Intersection::new(val, shape.clone()),
@@ -612,7 +616,7 @@ mod tests {
         // we have to do this in separate blocks
         // to work around the ban on multiple mutable references to world.objects
         {
-            let a = &mut world.objects[0];
+            let a = Arc::get_mut(&mut world.objects[0]).unwrap();
             let mut a_material = a.material();
             a_material.ambient = 1.;
             a_material.pattern = Some(Box::<pattern::tests::TestPattern>::default());
@@ -620,7 +624,7 @@ mod tests {
         }
 
         {
-            let b = &mut world.objects[1];
+            let b = Arc::get_mut(&mut world.objects[1]).unwrap();
             let mut b_material = b.material();
             b_material.transparency = 1.;
             b_material.refractive_index = 1.5;
@@ -656,7 +660,7 @@ mod tests {
                 refractive_index: 1.5,
                 ..Default::default()
             });
-        world.objects.push(Box::new(floor.clone()));
+        world.objects.push(Arc::new(floor.clone()));
 
         let ball = Sphere::new(
             Matrix::translation(0., -3.5, -0.5),
@@ -667,11 +671,11 @@ mod tests {
             },
             None,
         );
-        world.objects.push(Box::new(ball));
+        world.objects.push(Arc::new(ball));
 
         let val = 2.0_f64.sqrt() / 2.;
         let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
-        let xs = &[Intersection::new(2.0_f64.sqrt(), Box::new(floor))];
+        let xs = &[Intersection::new(2.0_f64.sqrt(), Arc::new(floor))];
         let comps = xs[0].prepare_computations(&ray, xs).unwrap();
         let color = world.shade_hit(&comps, 5).unwrap();
         assert_eq!(color, Color::new(0.93642, 0.68642, 0.68642));
@@ -689,7 +693,7 @@ mod tests {
                 refractive_index: 1.5,
                 ..Default::default()
             });
-        world.objects.push(Box::new(floor.clone()));
+        world.objects.push(Arc::new(floor.clone()));
 
         let ball = Sphere::new(
             Matrix::translation(0., -3.5, -0.5),
@@ -700,12 +704,12 @@ mod tests {
             },
             None,
         );
-        world.objects.push(Box::new(ball));
+        world.objects.push(Arc::new(ball));
 
         let val = 2.0_f64.sqrt() / 2.;
         let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
 
-        let xs = &[Intersection::new(2.0_f64.sqrt(), Box::new(floor))];
+        let xs = &[Intersection::new(2.0_f64.sqrt(), Arc::new(floor))];
         let comps = xs[0].prepare_computations(&ray, xs).unwrap();
         let color = world.shade_hit(&comps, 5).unwrap();
 

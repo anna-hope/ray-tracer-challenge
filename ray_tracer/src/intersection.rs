@@ -1,6 +1,9 @@
 use std::fmt::Debug;
 
-use crate::{shape::Shape, Matrix, Result, Tuple, EPSILON};
+use crate::{
+    shape::{Shape, ShapeRef},
+    Matrix, Result, Tuple, EPSILON,
+};
 
 /// Ray.origin is a point, Ray.direction is a vector.
 #[derive(Debug, Clone, Copy)]
@@ -91,11 +94,11 @@ impl<'a> Computations<'a> {
 #[derive(Clone, Debug)]
 pub struct Intersection {
     pub t: f64,
-    pub object: Box<dyn Shape>,
+    pub object: ShapeRef,
 }
 
 impl Intersection {
-    pub fn new(t: f64, object: Box<dyn Shape>) -> Self {
+    pub fn new(t: f64, object: ShapeRef) -> Self {
         Self { t, object }
     }
 
@@ -129,7 +132,7 @@ impl Intersection {
         // n1 belongs to the material being exited
         // and n2 belongs to the material being entered
         // (see p. 153 of the book for explanation of the algorithm)
-        let mut containers: Vec<&Box<dyn Shape>> = vec![];
+        let mut containers: Vec<&ShapeRef> = vec![];
         let mut n1: Option<f64> = None;
         let mut n2: Option<f64> = None;
 
@@ -205,9 +208,11 @@ mod tests {
     use super::*;
     use crate::{
         equal,
+        material::Material,
         shape::{plane::Plane, sphere::Sphere},
         EPSILON,
     };
+    use std::sync::Arc;
 
     #[test]
     fn create_and_query_ray() {
@@ -230,7 +235,7 @@ mod tests {
     #[test]
     fn intersection_encapsulates_t_and_object() {
         let sphere = Sphere::default();
-        let intersection = Intersection::new(3.5, Box::new(sphere.clone()));
+        let intersection = Intersection::new(3.5, Arc::new(sphere.clone()));
         assert_eq!(intersection.t, 3.5);
         // assert_eq!(&sphere, intersection.object);
         assert_eq!(intersection.object.id(), sphere.id());
@@ -240,8 +245,8 @@ mod tests {
     #[test]
     fn aggregating_intersections() {
         let sphere = Sphere::default();
-        let i1 = Intersection::new(1., Box::new(sphere.clone()));
-        let i2 = Intersection::new(2., Box::new(sphere));
+        let i1 = Intersection::new(1., Arc::new(sphere.clone()));
+        let i2 = Intersection::new(2., Arc::new(sphere));
         let xs = &[i1, i2];
         assert_eq!(xs[0].t, 1.);
         assert_eq!(xs[1].t, 2.);
@@ -250,8 +255,8 @@ mod tests {
     #[test]
     fn hit_all_intersections_have_positive_t() {
         let sphere = Sphere::default();
-        let i1 = Intersection::new(1., Box::new(sphere.clone()));
-        let i2 = Intersection::new(2., Box::new(sphere));
+        let i1 = Intersection::new(1., Arc::new(sphere.clone()));
+        let i2 = Intersection::new(2., Arc::new(sphere));
         let xs = &[i1.clone(), i2];
         let intersection = hit(xs).unwrap();
         assert_eq!(intersection, &i1);
@@ -260,8 +265,8 @@ mod tests {
     #[test]
     fn hit_some_intersections_have_negative_t() {
         let sphere = Sphere::default();
-        let i1 = Intersection::new(-1., Box::new(sphere.clone()));
-        let i2 = Intersection::new(1., Box::new(sphere));
+        let i1 = Intersection::new(-1., Arc::new(sphere.clone()));
+        let i2 = Intersection::new(1., Arc::new(sphere));
         let xs = &[i1, i2.clone()];
         let intersection = hit(xs).unwrap();
         assert_eq!(intersection, &i2);
@@ -269,7 +274,7 @@ mod tests {
 
     #[test]
     fn hit_all_intersections_have_negative_t() {
-        let sphere = Box::<Sphere>::default();
+        let sphere = Arc::<Sphere>::default();
         let i1 = Intersection::new(-2., sphere.clone());
         let i2 = Intersection::new(-1., sphere);
         let xs = &[i1, i2];
@@ -279,7 +284,7 @@ mod tests {
 
     #[test]
     fn hit_is_always_lowest_nonnegative_intersection() {
-        let sphere = Box::<Sphere>::default();
+        let sphere = Arc::<Sphere>::default();
         let i1 = Intersection::new(5., sphere.clone());
         let i2 = Intersection::new(7., sphere.clone());
         let i3 = Intersection::new(-3., sphere.clone());
@@ -310,7 +315,7 @@ mod tests {
     #[test]
     fn precompute_state_of_intersection() {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let shape = Box::<Sphere>::default();
+        let shape = Arc::<Sphere>::default();
         let intersection = Intersection::new(4., shape);
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
@@ -326,7 +331,7 @@ mod tests {
     #[test]
     fn hit_when_intersection_outside() {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let shape = Box::<Sphere>::default();
+        let shape = Arc::<Sphere>::default();
         let intersection = Intersection::new(4., shape);
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
@@ -337,7 +342,7 @@ mod tests {
     #[test]
     fn hit_when_intersection_inside() {
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
-        let shape = Box::<Sphere>::default();
+        let shape = Arc::<Sphere>::default();
         let intersection = Intersection::new(1., shape);
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
@@ -352,7 +357,7 @@ mod tests {
     fn hit_should_offset_point() {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let shape =
-            Box::new(Sphere::default().with_transformation(Matrix::translation(0., 0., 1.)));
+            Arc::new(Sphere::default().with_transformation(Matrix::translation(0., 0., 1.)));
         let intersection = Intersection::new(5., shape);
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
@@ -363,7 +368,7 @@ mod tests {
 
     #[test]
     fn precompute_reflection_vector() {
-        let shape = Box::new(Plane::default());
+        let shape = Arc::new(Plane::default());
         let val = 2.0_f64 / 2.;
         let ray = Ray::new(Tuple::point(0., 1., -1.), Tuple::vector(0., -val, val));
         let intersection = Intersection::new(2.0_f64.sqrt(), shape);
@@ -375,22 +380,32 @@ mod tests {
 
     #[test]
     fn find_n1_and_n2_at_various_intersections() {
-        let mut a = Box::new(Sphere::glass().with_transformation(Matrix::scaling(2., 2., 2.)));
-        let mut a_material = a.material();
-        a_material.refractive_index = 1.5;
-        a.set_material(a_material);
+        let a = Arc::new(
+            Sphere::glass()
+                .with_transformation(Matrix::scaling(2., 2., 2.))
+                .with_material(Material {
+                    refractive_index: 1.5,
+                    ..Default::default()
+                }),
+        );
 
-        let mut b =
-            Box::new(Sphere::glass().with_transformation(Matrix::translation(0., 0., -0.25)));
-        let mut b_material = b.material();
-        b_material.refractive_index = 2.;
-        b.set_material(b_material);
+        let b = Arc::new(
+            Sphere::glass()
+                .with_transformation(Matrix::translation(0., 0., -0.25))
+                .with_material(Material {
+                    refractive_index: 2.,
+                    ..Default::default()
+                }),
+        );
 
-        let mut c =
-            Box::new(Sphere::glass().with_transformation(Matrix::translation(0., 0., 0.25)));
-        let mut c_material = c.material();
-        c_material.refractive_index = 2.5;
-        c.set_material(c_material);
+        let c = Arc::new(
+            Sphere::glass()
+                .with_transformation(Matrix::translation(0., 0., 0.25))
+                .with_material(Material {
+                    refractive_index: 2.5,
+                    ..Default::default()
+                }),
+        );
 
         let ray = Ray::new(Tuple::point(0., 0., -4.), Tuple::vector(0., 0., 1.));
         let xs = vec![
@@ -416,7 +431,7 @@ mod tests {
     fn under_point_is_offset_below_surface() {
         let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let shape = Sphere::glass().with_transformation(Matrix::translation(0., 0., 1.));
-        let intersection = Intersection::new(5., Box::new(shape));
+        let intersection = Intersection::new(5., Arc::new(shape));
         let xs = [intersection.clone()];
         let comps = intersection.prepare_computations(&ray, &xs).unwrap();
         assert!(comps.under_point.z > EPSILON / 2.);
@@ -425,7 +440,7 @@ mod tests {
 
     #[test]
     fn schlick_approximation_under_total_internal_reflection() {
-        let shape = Box::new(Sphere::glass());
+        let shape = Arc::new(Sphere::glass());
         let val = 2.0_f64 / 2.;
         let ray = Ray::new(Tuple::point(0., 0., val), Tuple::vector(0., 1., 0.));
         let xs = &[
@@ -439,7 +454,7 @@ mod tests {
 
     #[test]
     fn schlick_approximation_with_perpendicular_viewing_angle() {
-        let shape = Box::new(Sphere::glass());
+        let shape = Arc::new(Sphere::glass());
         let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 1., 0.));
         let xs = &[
             Intersection::new(-1., shape.clone()),
@@ -452,7 +467,7 @@ mod tests {
 
     #[test]
     fn schlick_approximation_with_small_angle_and_n2_gt_n1() {
-        let shape = Box::new(Sphere::glass());
+        let shape = Arc::new(Sphere::glass());
         let ray = Ray::new(Tuple::point(0., 0.99, -2.), Tuple::vector(0., 0., 1.));
         let xs = &[Intersection::new(1.8589, shape)];
         let comps = xs[0].prepare_computations(&ray, xs).unwrap();

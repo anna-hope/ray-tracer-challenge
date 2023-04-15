@@ -12,7 +12,7 @@ use crate::{
     Matrix, Result, Tuple,
 };
 
-type ShapeRef = Arc<dyn Shape>;
+pub type ShapeRef = Arc<dyn Shape>;
 
 lazy_static! {
     static ref SHAPES: RwLock<SlotMap<DefaultKey, ShapeRef>> = RwLock::new(SlotMap::new());
@@ -28,20 +28,8 @@ pub enum ShapeType {
     Group,
     TestShape,
 }
-pub trait ShapeClone {
-    fn clone_box(&self) -> Box<dyn Shape>;
-}
 
-impl<T> ShapeClone for T
-where
-    T: 'static + Shape + Clone,
-{
-    fn clone_box(&self) -> Box<dyn Shape> {
-        Box::new(self.clone())
-    }
-}
-
-pub trait Shape: Intersect + Send + Sync + ShapeClone {
+pub trait Shape: Intersect + Send + Sync {
     /// Computes the normal vector at the world point.
     fn normal_at(&self, point: Tuple) -> Result<Tuple> {
         let local_point = self.world_to_object(point)?;
@@ -116,12 +104,6 @@ impl Debug for dyn Shape {
             .field("type", &self.shape_type())
             .field("id", &self.id())
             .finish()
-    }
-}
-
-impl Clone for Box<dyn Shape> {
-    fn clone(&self) -> Self {
-        self.clone_box()
     }
 }
 
@@ -204,8 +186,8 @@ pub mod sphere {
             let t1 = (-b - discriminant.sqrt()) / (2. * a);
             let t2 = (-b + discriminant.sqrt()) / (2. * a);
 
-            let i1 = Intersection::new(t1, Box::new(self.to_owned()));
-            let i2 = Intersection::new(t2, Box::new(self.to_owned()));
+            let i1 = Intersection::new(t1, Arc::new(self.to_owned()));
+            let i2 = Intersection::new(t2, Arc::new(self.to_owned()));
             vec![i1, i2]
         }
     }
@@ -475,7 +457,7 @@ pub mod plane {
             }
 
             let t = -ray.origin.y / ray.direction.y;
-            vec![Intersection::new(t, Box::new(self.to_owned()))]
+            vec![Intersection::new(t, Arc::new(self.to_owned()))]
         }
 
         pub fn with_transformation(mut self, transformation: Matrix) -> Self {
@@ -655,8 +637,8 @@ pub mod cube {
             }
 
             vec![
-                Intersection::new(t_min, Box::new(self.clone())),
-                Intersection::new(t_max, Box::new(self.clone())),
+                Intersection::new(t_min, Arc::new(self.clone())),
+                Intersection::new(t_max, Arc::new(self.clone())),
             ]
         }
 
@@ -917,12 +899,12 @@ pub mod cylinder {
             let y0 = ray.origin.y + t0 * ray.direction.y;
 
             if self.minimum < y0 && y0 < self.maximum {
-                intersections.push(Intersection::new(t0, Box::new(self.clone())));
+                intersections.push(Intersection::new(t0, Arc::new(self.clone())));
             }
 
             let y1 = ray.origin.y + t1 * ray.direction.y;
             if self.minimum < y1 && y1 < self.maximum {
-                intersections.push(Intersection::new(t1, Box::new(self.clone())));
+                intersections.push(Intersection::new(t1, Arc::new(self.clone())));
             }
 
             let mut intersections_caps = self.intersect_caps(ray);
@@ -942,13 +924,13 @@ pub mod cylinder {
             // check for an intersection with the lower end cap
             let t = (self.minimum - ray.origin.y) / ray.direction.y;
             if ray.check_cap(t, 1.) {
-                intersections.push(Intersection::new(t, Box::new(self.clone())));
+                intersections.push(Intersection::new(t, Arc::new(self.clone())));
             }
 
             // check for an intersection with the upper end cap
             let t = (self.maximum - ray.origin.y) / ray.direction.y;
             if ray.check_cap(t, 1.) {
-                intersections.push(Intersection::new(t, Box::new(self.clone())));
+                intersections.push(Intersection::new(t, Arc::new(self.clone())));
             }
 
             intersections
@@ -1212,7 +1194,7 @@ pub mod cone {
                     self.intersect_caps(ray)
                 } else {
                     let t = -c / (2. * b);
-                    vec![Intersection::new(t, Box::new(self.clone()))]
+                    vec![Intersection::new(t, Arc::new(self.clone()))]
                 }
             } else {
                 let discriminant = b.powi(2) - 4. * a * c;
@@ -1233,12 +1215,12 @@ pub mod cone {
                 let y0 = ray.origin.y + t0 * ray.direction.y;
 
                 if self.minimum < y0 && y0 < self.maximum {
-                    intersections.push(Intersection::new(t0, Box::new(self.clone())));
+                    intersections.push(Intersection::new(t0, Arc::new(self.clone())));
                 }
 
                 let y1 = ray.origin.y + t1 * ray.direction.y;
                 if self.minimum < y1 && y1 < self.maximum {
-                    intersections.push(Intersection::new(t1, Box::new(self.clone())));
+                    intersections.push(Intersection::new(t1, Arc::new(self.clone())));
                 }
 
                 let mut intersections_caps = self.intersect_caps(ray);
@@ -1259,13 +1241,13 @@ pub mod cone {
             // check for an intersection with the lower end cap
             let t = (self.minimum.abs() - ray.origin.y) / ray.direction.y;
             if ray.check_cap(t, self.minimum.abs()) {
-                intersections.push(Intersection::new(t, Box::new(self.clone())));
+                intersections.push(Intersection::new(t, Arc::new(self.clone())));
             }
 
             // check for an intersection with the upper end cap
             let t = (self.maximum.abs() - ray.origin.y) / ray.direction.y;
             if ray.check_cap(t, self.maximum.abs()) {
-                intersections.push(Intersection::new(t, Box::new(self.clone())));
+                intersections.push(Intersection::new(t, Arc::new(self.clone())));
             }
 
             intersections
@@ -1543,12 +1525,6 @@ pub mod group {
         }
     }
 
-    impl Drop for Group {
-        fn drop(&mut self) {
-            println!("Dropping group {}", self.id);
-        }
-    }
-
     #[cfg(test)]
     mod tests {
         use crate::shape::sphere::Sphere;
@@ -1651,7 +1627,11 @@ pub mod group {
 #[cfg(test)]
 mod tests {
 
-    use std::f64::consts::{FRAC_1_SQRT_2, PI};
+    use std::{
+        f64::consts::{FRAC_1_SQRT_2, PI},
+        thread::sleep,
+        time::Duration,
+    };
 
     use super::{group::Group, sphere::Sphere, *};
 
@@ -1783,6 +1763,10 @@ mod tests {
 
     #[test]
     fn convert_point_from_world_to_object_space() {
+        while SHAPES.is_locked() {
+            sleep(Duration::from_millis(100));
+        }
+
         let mut sphere: ShapeRef =
             Arc::new(Sphere::default().with_transformation(Matrix::translation(5., 0., 0.)));
 
@@ -1802,6 +1786,10 @@ mod tests {
 
     #[test]
     fn convert_normal_from_object_to_world_space() {
+        while SHAPES.is_locked() {
+            sleep(Duration::from_millis(100));
+        }
+
         let group1 = Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
         let group1_clone = Arc::clone(&group1) as ShapeRef;
         insert_shape(group1_clone);
@@ -1827,6 +1815,10 @@ mod tests {
 
     #[test]
     fn find_normal_on_child_object() {
+        while SHAPES.is_locked() {
+            sleep(Duration::from_millis(100));
+        }
+
         let group1: ShapeRef =
             Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
         insert_shape(Arc::clone(&group1));

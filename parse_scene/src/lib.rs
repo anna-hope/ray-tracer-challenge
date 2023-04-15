@@ -1,10 +1,7 @@
 use serde_yaml::{Mapping, Sequence, Value};
 use thiserror::Error;
 
-use ray_tracer::{
-    camera::Camera, light::Light, material::Material, shape::*,
-    transformation::compute_view_transformation, Color, Matrix, Tuple,
-};
+use ray_tracer::prelude::*;
 
 #[derive(Error, Debug)]
 pub enum ParseError {
@@ -539,9 +536,9 @@ fn construct_object(
     }
 
     let object: Box<dyn Shape> = match object_type {
-        "sphere" => Box::new(sphere::Sphere::new(transformation, material)),
-        "plane" => Box::new(plane::Plane::new(transformation, material)),
-        "cube" => Box::new(cube::Cube::new(transformation, material)),
+        "sphere" => Box::new(sphere::Sphere::new(transformation, material, None)),
+        "plane" => Box::new(plane::Plane::new(transformation, material, None)),
+        "cube" => Box::new(cube::Cube::new(transformation, material, None)),
         "cylinder" => {
             // cylinders can be truncated and have a minimum and a maximum
             let minimum = get_or_default_f64!(description, "minimum", -f64::INFINITY);
@@ -557,6 +554,7 @@ fn construct_object(
                 minimum,
                 maximum,
                 closed,
+                None,
             ))
         }
         "cone" => {
@@ -574,6 +572,7 @@ fn construct_object(
                 minimum,
                 maximum,
                 closed,
+                None,
             ))
         }
         _ => unimplemented!(),
@@ -743,6 +742,96 @@ mod tests {
                 .scale(0.5, 0.5, 0.5)
                 .scale(3.5, 3.5, 3.5)
                 .translate(0.5, 1.5, -0.5)
+        );
+    }
+
+    #[test]
+    fn parse_scene_with_group() {
+        let input = r#"
+        - add: camera
+          width: 1000
+          height: 500
+          field-of-view: 1.0471975512
+          from: [0, 5, -7]
+          to: [0, 2, 0]
+          up: [0, 1, 0]
+        - add: light
+          at: [-10, 10, -10]
+          intensity: [1, 1, 1]
+        - add: group
+          transform:
+            - [ translate, 0, 1, 0 ]
+          children:
+            - add: sphere
+              material:
+                color: [1, 0.2, 1]
+                diffuse: 0.7
+                specular: 0.3
+              transform:
+                - [ scale, 1, 0.5, 1 ]
+            - add: plane
+              material:
+                color: [1, 0.9, 0.9]
+                specular: 0
+              transform:
+                - [rotate-x, 1.5708]
+                - [ translate, 0, 0, 5]
+        "#;
+
+        let scene = parse_scene(input).unwrap();
+        assert_eq!(scene.objects.len(), 1);
+        assert_eq!(scene.objects[0].material().color, Color::new(1., 0.2, 1.));
+        assert_eq!(scene.objects[0].material().diffuse, 0.7);
+        assert_eq!(scene.objects[0].material().specular, 0.3);
+        assert_eq!(
+            scene.objects[0].transformation(),
+            Matrix::identity().scale(1., 0.5, 1.).translate(0., 1., 0.)
+        );
+    }
+
+    #[test]
+    fn parse_scene_with_nested_groups() {
+        let input = r#"
+        - add: camera
+          width: 1000
+          height: 500
+          field-of-view: 1.0471975512
+          from: [0, 5, -7]
+          to: [0, 2, 0]
+          up: [0, 1, 0]
+        - add: light
+          at: [-10, 10, -10]
+          intensity: [1, 1, 1]
+        - add: group
+          transform:
+            - [ translate, 0, 1, 0 ]
+          children:
+            - add: group
+              transform:
+                - [ scale, 1, 0.5, 1 ]
+              children:
+                - add: sphere
+                  material:
+                    color: [1, 0.2, 1]
+                    diffuse: 0.7
+                    specular: 0.3
+            - add: plane
+              material:
+                color: [1, 0.9, 0.9]
+                specular: 0
+              transform:
+                - [rotate-x, 1.5708]
+                - [ translate, 0, 0, 5]
+        "#;
+
+        let scene = parse_scene(input).unwrap();
+        assert_eq!(scene.objects.len(), 1);
+        assert_eq!(scene.objects[0].material().color, Color::new(1., 0.2, 1.));
+        assert_eq!(scene.objects[0].material().diffuse, 0.7);
+        assert_eq!(scene.objects[0].material().specular, 0.3);
+        assert_eq!(
+            scene.objects[0].transformation(),
+            Matrix::identity().scale(1., 0.5, 1.).translate(0., 1., 0.)
         );
     }
 }

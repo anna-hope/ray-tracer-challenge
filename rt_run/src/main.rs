@@ -5,7 +5,7 @@ use std::{
 };
 
 use parse_scene::parse_scene;
-use ray_tracer::world::World;
+use ray_tracer::prelude::*;
 
 fn main() {
     let mut args = env::args();

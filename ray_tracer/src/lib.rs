@@ -7,6 +7,7 @@ pub mod light;
 pub mod material;
 mod matrix;
 pub mod pattern;
+pub mod prelude;
 pub mod shape;
 pub mod transformation;
 mod tuple;

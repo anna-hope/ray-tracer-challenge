@@ -1,0 +1,10 @@
+pub use crate::camera::Camera;
+pub use crate::color::Color;
+pub use crate::intersection::Ray;
+pub use crate::light::Light;
+pub use crate::material::Material;
+pub use crate::matrix::Matrix;
+pub use crate::shape::*;
+pub use crate::transformation::compute_view_transformation;
+pub use crate::tuple::Tuple;
+pub use crate::world::World;

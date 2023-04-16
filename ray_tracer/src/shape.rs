@@ -111,7 +111,7 @@ impl Debug for dyn Shape {
 /// This is typically needed to be called explicitly only for root shapes (`Group`),
 /// as child groups/shapes will be inserted into the SlotMap automatically
 /// when they are passed to `Group.add_child`.
-pub fn insert_shape(shape: Arc<dyn Shape>) -> DefaultKey {
+pub fn register_shape(shape: Arc<dyn Shape>) -> DefaultKey {
     let mut shapes = SHAPES.write();
     shapes.insert(shape)
 }
@@ -1512,7 +1512,7 @@ pub mod group {
                 child_shape.set_parent(self_key);
             }
 
-            let child_key = insert_shape(Arc::clone(child));
+            let child_key = register_shape(Arc::clone(child));
             let mut children = self.children.write();
             children.push(child_key);
         }
@@ -1550,7 +1550,7 @@ pub mod group {
 
             let group = Arc::new(Group::default());
             let group_clone: ShapeRef = group.clone() as ShapeRef;
-            insert_shape(group_clone);
+            register_shape(group_clone);
 
             let mut shape: ShapeRef = Arc::new(shape);
             group.add_child(&mut shape);
@@ -1586,7 +1586,7 @@ pub mod group {
 
             let group = Arc::new(Group::default());
             let group_clone: ShapeRef = Arc::clone(&group) as ShapeRef;
-            insert_shape(group_clone);
+            register_shape(group_clone);
 
             let mut s1: ShapeRef = Arc::new(s1);
             let mut s2: ShapeRef = Arc::new(s2);
@@ -1612,7 +1612,7 @@ pub mod group {
 
             let group = Arc::new(Group::default().with_transformation(Matrix::scaling(2., 2., 2.)));
             let group_clone = Arc::clone(&group) as ShapeRef;
-            insert_shape(group_clone);
+            register_shape(group_clone);
 
             let mut shape: ShapeRef = Arc::new(shape);
             group.add_child(&mut shape);
@@ -1775,7 +1775,7 @@ mod tests {
             Arc::new(Group::default().with_transformation(Matrix::scaling(2., 2., 2.)));
 
         let group1_clone: ShapeRef = Arc::clone(&group1) as ShapeRef;
-        insert_shape(group1_clone);
+        register_shape(group1_clone);
 
         group1.add_child(&mut group2);
         group2.add_child(&mut sphere);
@@ -1792,7 +1792,7 @@ mod tests {
 
         let group1 = Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
         let group1_clone = Arc::clone(&group1) as ShapeRef;
-        insert_shape(group1_clone);
+        register_shape(group1_clone);
 
         let mut group2: ShapeRef =
             Arc::new(Group::default().with_transformation(Matrix::scaling(1., 2., 3.)));
@@ -1821,7 +1821,7 @@ mod tests {
 
         let group1: ShapeRef =
             Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
-        insert_shape(Arc::clone(&group1));
+        register_shape(Arc::clone(&group1));
 
         let mut group2: ShapeRef =
             Arc::new(Group::default().with_transformation(Matrix::scaling(1., 2., 3.)));

@@ -10,8 +10,6 @@ fn main() {
     let hex_clone = Arc::clone(&hex);
     register_shape(hex_clone);
 
-    let mut objects = vec![];
-
     for n in 0..=5 {
         let n = n as f64;
         let mut side: Arc<dyn Shape> = Arc::new(
@@ -44,10 +42,8 @@ fn main() {
         side.add_child(&mut edge);
     }
 
-    objects.push(hex);
-
     let light = Light::new(Tuple::point(0., 1., 1.), Color::white());
-    let world = World::new(objects, vec![light]);
+    let world = World::new(vec![hex], vec![light]);
 
     let from = Tuple::point(0., 4., 5.);
     let to = Tuple::point(0., 0., 0.);

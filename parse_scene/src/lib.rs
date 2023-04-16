@@ -384,7 +384,7 @@ fn construct_camera(description: &Mapping) -> Result<Camera> {
     let up = Tuple::vector(up_values[0], up_values[1], up_values[2]);
 
     let transformation = compute_view_transformation(from, to, up)?;
-    let camera = Camera::new(width, height, field_of_view).with_transformation(transformation);
+    let camera = Camera::new(width, height, field_of_view, transformation);
 
     Ok(camera)
 }
@@ -612,7 +612,7 @@ fn construct_objects(
                 // we need to just add it to the shapes store directly --
                 // it won't be anyone's child
                 let group_clone: Arc<dyn Shape> = Arc::clone(&group) as Arc<dyn Shape>;
-                insert_shape(group_clone);
+                register_shape(group_clone);
             }
 
             // we are getting a Vec of Vecs of children because each level

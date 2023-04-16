@@ -903,6 +903,8 @@ mod tests {
                     color: [1, 0.2, 1]
                     diffuse: 0.7
                     specular: 0.3
+                - add: cube
+                  material: {}
             - add: plane
               material:
                 color: [1, 0.9, 0.9]
@@ -913,15 +915,17 @@ mod tests {
         "#;
 
         let scene = parse_scene(input).unwrap();
-        assert_eq!(scene.objects.len(), 2);
+        assert_eq!(scene.objects.len(), 3);
         assert_eq!(scene.objects[0].material().color, Color::new(1., 0.2, 1.));
         assert_eq!(scene.objects[0].material().diffuse, 0.7);
         assert_eq!(scene.objects[0].material().specular, 0.3);
 
-        assert_eq!(scene.objects[1].material().color, Color::new(1., 0.9, 0.9));
-        assert_eq!(scene.objects[1].material().specular, 0.);
+        assert_eq!(scene.objects[1].material(), Material::default());
+
+        assert_eq!(scene.objects[2].material().color, Color::new(1., 0.9, 0.9));
+        assert_eq!(scene.objects[2].material().specular, 0.);
         assert_eq!(
-            scene.objects[1].transformation(),
+            scene.objects[2].transformation(),
             Matrix::identity().rotate_x(1.5708).translate(0., 0., 5.)
         );
     }

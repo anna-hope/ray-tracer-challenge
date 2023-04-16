@@ -1503,6 +1503,7 @@ pub mod group {
                 for (key, value) in shapes.iter() {
                     if value.id() == self.id() && value.shape_type() == ShapeType::Group {
                         self_key = Some(key);
+                        break;
                     }
                 }
 

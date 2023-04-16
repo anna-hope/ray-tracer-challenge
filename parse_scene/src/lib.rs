@@ -446,11 +446,11 @@ fn parse_material(description: &Value) -> Material {
     }
 }
 
-fn construct_objects(
+fn construct_object(
     description: &Mapping,
     definitions: &[Definition],
     parent: Option<Arc<dyn Shape>>,
-) -> Result<Vec<Arc<dyn Shape>>> {
+) -> Result<Arc<dyn Shape>> {
     let object_type = description
         .get("add")
         .ok_or(ParseError::InvalidValue(
@@ -550,14 +550,10 @@ fn construct_objects(
         }
     }
 
-    let objects: Vec<Arc<dyn Shape>> = match object_type {
-        "sphere" => vec![Arc::new(sphere::Sphere::new(
-            transformation,
-            material,
-            None,
-        ))],
-        "plane" => vec![Arc::new(plane::Plane::new(transformation, material, None))],
-        "cube" => vec![Arc::new(cube::Cube::new(transformation, material, None))],
+    let object: Arc<dyn Shape> = match object_type {
+        "sphere" => Arc::new(sphere::Sphere::new(transformation, material, None)),
+        "plane" => Arc::new(plane::Plane::new(transformation, material, None)),
+        "cube" => Arc::new(cube::Cube::new(transformation, material, None)),
         "cylinder" => {
             // cylinders can be truncated and have a minimum and a maximum
             let minimum = get_or_default_f64!(description, "minimum", -f64::INFINITY);
@@ -567,14 +563,14 @@ fn construct_objects(
                 .and_then(|x| x.as_bool())
                 .unwrap_or(false);
 
-            vec![Arc::new(cylinder::Cylinder::new(
+            Arc::new(cylinder::Cylinder::new(
                 transformation,
                 material,
                 minimum,
                 maximum,
                 closed,
                 None,
-            ))]
+            ))
         }
         "cone" => {
             // ditto for cones
@@ -585,14 +581,14 @@ fn construct_objects(
                 .and_then(|x| x.as_bool())
                 .unwrap_or(false);
 
-            vec![Arc::new(cone::Cone::new(
+            Arc::new(cone::Cone::new(
                 transformation,
                 material,
                 minimum,
                 maximum,
                 closed,
                 None,
-            ))]
+            ))
         }
         "group" => {
             let mut group: Arc<dyn Shape> =
@@ -615,10 +611,7 @@ fn construct_objects(
                 register_shape(group_clone);
             }
 
-            // we are getting a Vec of Vecs of children because each level
-            // of construct objects returns all the shapes that are defined at
-            // that level, which is multiple in the case of groups
-            let children = description
+            let mut children = description
                 .get("children")
                 .ok_or(ParseError::InvalidGroupParams(
                     "Missing 'children' in group definition".to_string(),
@@ -633,32 +626,25 @@ fn construct_objects(
                         "Each value in a group's 'children' must be a mapping".to_string(),
                     ))
                 })
-                .map(|x| construct_objects(x?, definitions, Some(Arc::clone(&group))))
-                .collect::<Result<Vec<Vec<Arc<dyn Shape>>>>>()?;
+                .map(|x| construct_object(x?, definitions, Some(Arc::clone(&group))))
+                .collect::<Result<Vec<Arc<dyn Shape>>>>()?;
 
-            // we then flatten that Vec of Vecs of children
-            // to get all the children defined at every level
-            let mut children = children
-                .into_iter()
-                .flatten()
-                .collect::<Vec<Arc<dyn Shape>>>();
-
-            // because we are getting all the children from every level,
-            // some of them have already been added to a group in the level below
-            // so we should only add the children that don't yet have a parent
-            // i.e. the children only from the current level
+            // if the child is a group, then it's already been added
+            // in the next level of recursion
+            // so trying to add it again would violate the constraint on Arc being unique
+            // and we'd crash
             for child in children.iter_mut() {
                 if child.parent().is_none() {
                     group.add_child(child);
                 }
             }
 
-            children
+            group
         }
         _ => unimplemented!(),
     };
 
-    Ok(objects)
+    Ok(object)
 }
 
 pub fn parse_scene(input: &str) -> Result<Scene> {
@@ -668,7 +654,7 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
     let mut lights = vec![];
     let mut definitions = vec![];
 
-    let mut all_objects: Vec<Arc<dyn Shape>> = vec![];
+    let mut objects: Vec<Arc<dyn Shape>> = vec![];
 
     for item in sequence {
         if let Some(mapping) = item.as_mapping() {
@@ -682,8 +668,8 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
                         lights.push(light);
                     }
                     "sphere" | "plane" | "cube" | "cylinder" | "cone" | "group" => {
-                        let mut objects = construct_objects(mapping, &definitions, None)?;
-                        all_objects.append(&mut objects);
+                        let object = construct_object(mapping, &definitions, None)?;
+                        objects.push(object);
                     }
                     _ => return Err(ParseError::UnknownItem(item_type.to_owned())),
                 }
@@ -703,7 +689,7 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
     let scene = Scene {
         camera,
         lights,
-        objects: all_objects,
+        objects,
     };
     Ok(scene)
 }
@@ -859,21 +845,10 @@ mod tests {
         "#;
 
         let scene = parse_scene(input).unwrap();
-        assert_eq!(scene.objects.len(), 2);
-
-        assert_eq!(scene.objects[0].material().color, Color::new(1., 0.2, 1.));
-        assert_eq!(scene.objects[0].material().diffuse, 0.7);
-        assert_eq!(scene.objects[0].material().specular, 0.3);
+        assert_eq!(scene.objects.len(), 1);
         assert_eq!(
             scene.objects[0].transformation(),
-            Matrix::identity().scale(1., 0.5, 1.)
-        );
-
-        assert_eq!(scene.objects[1].material().color, Color::new(1., 0.9, 0.9));
-        assert_eq!(scene.objects[1].material().specular, 0.);
-        assert_eq!(
-            scene.objects[1].transformation(),
-            Matrix::identity().rotate_x(1.5708).translate(0., 0., 5.)
+            Matrix::identity().translate(0., 1., 0.)
         );
     }
 
@@ -915,18 +890,10 @@ mod tests {
         "#;
 
         let scene = parse_scene(input).unwrap();
-        assert_eq!(scene.objects.len(), 3);
-        assert_eq!(scene.objects[0].material().color, Color::new(1., 0.2, 1.));
-        assert_eq!(scene.objects[0].material().diffuse, 0.7);
-        assert_eq!(scene.objects[0].material().specular, 0.3);
-
-        assert_eq!(scene.objects[1].material(), Material::default());
-
-        assert_eq!(scene.objects[2].material().color, Color::new(1., 0.9, 0.9));
-        assert_eq!(scene.objects[2].material().specular, 0.);
+        assert_eq!(scene.objects.len(), 1);
         assert_eq!(
-            scene.objects[2].transformation(),
-            Matrix::identity().rotate_x(1.5708).translate(0., 0., 5.)
+            scene.objects[0].transformation(),
+            Matrix::identity().translate(0., 1., 0.)
         );
     }
 }

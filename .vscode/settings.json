@@ -1,0 +1,5 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "./ray_tracer/Cargo.toml"
+  ]
+}

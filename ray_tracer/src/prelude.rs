@@ -6,5 +6,5 @@ pub use crate::material::Material;
 pub use crate::matrix::Matrix;
 pub use crate::shape::*;
 pub use crate::transformation::compute_view_transformation;
-pub use crate::tuple::Tuple;
+pub use crate::tuple::{Point, Vector};
 pub use crate::world::World;

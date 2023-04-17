@@ -1,4 +1,4 @@
-use crate::{color::Color, light::Light, pattern::Pattern, shape::Shape, Result, Tuple};
+use crate::{color::Color, light::Light, pattern::Pattern, shape::Shape, Point, Result, Vector};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Material {
@@ -21,9 +21,9 @@ impl Material {
         &self,
         object: &dyn Shape,
         light: Light,
-        point: Tuple,
-        eye_vector: Tuple,
-        normal_vector: Tuple,
+        point: Point,
+        eye_vector: Vector,
+        normal_vector: Vector,
         in_shadow: bool,
     ) -> Result<Color> {
         let color = if let Some(pattern) = &self.pattern {
@@ -44,7 +44,7 @@ impl Material {
         // light_dot_normal represents the cosine of the angle between
         // the light vector and the normal vector. A negative number means
         // the light is on the other side of the surface.
-        let light_dot_normal = light_vector.dot(&normal_vector)?;
+        let light_dot_normal = light_vector.dot(normal_vector);
 
         let diffuse: Color;
         let specular: Color;
@@ -60,8 +60,8 @@ impl Material {
             // reflect_dot_eye represents the cosine of the angle between
             // the reflection vector and the eye vector. A negative number means
             // the light reflects away from the eye.
-            let reflect_vector = (-light_vector).reflect(normal_vector)?;
-            let reflect_dot_eye = reflect_vector.dot(&eye_vector)?;
+            let reflect_vector = (-light_vector).reflect(normal_vector);
+            let reflect_dot_eye = reflect_vector.dot(eye_vector);
 
             if reflect_dot_eye <= 0. {
                 // set it to black because it reflects away from the eye
@@ -123,10 +123,10 @@ mod tests {
     #[test]
     fn lighting_with_eye_between_light_and_surface() {
         let material = Material::default();
-        let position = Tuple::point(0., 0., 0.);
-        let eye_vector = Tuple::vector(0., 0., -1.);
-        let normal_vector = Tuple::vector(0., 0., -1.);
-        let light = Light::new(Tuple::point(0., 0., -10.), Color::white());
+        let position = Point::new(0., 0., 0.);
+        let eye_vector = Vector::new(0., 0., -1.);
+        let normal_vector = Vector::new(0., 0., -1.);
+        let light = Light::new(Point::new(0., 0., -10.), Color::white());
         let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
@@ -137,11 +137,11 @@ mod tests {
     #[test]
     fn lighting_with_eye_between_light_and_surface_eye_offset_45() {
         let material = Material::default();
-        let position = Tuple::point(0., 0., 0.);
+        let position = Point::new(0., 0., 0.);
         let val = 2.0_f64.sqrt() / 2.0;
-        let eye_vector = Tuple::vector(0., val, -val);
-        let normal_vector = Tuple::vector(0., 0., -1.);
-        let light = Light::new(Tuple::point(0., 0., -10.), Color::white());
+        let eye_vector = Vector::new(0., val, -val);
+        let normal_vector = Vector::new(0., 0., -1.);
+        let light = Light::new(Point::new(0., 0., -10.), Color::white());
         let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
@@ -152,10 +152,10 @@ mod tests {
     #[test]
     fn lighting_with_eye_opposite_surface_light_offset_45() {
         let material = Material::default();
-        let position = Tuple::point(0., 0., 0.);
-        let eye_vector = Tuple::vector(0., 0., -1.);
-        let normal_vector = Tuple::vector(0., 0., -1.);
-        let light = Light::new(Tuple::point(0., 10., -10.), Color::white());
+        let position = Point::new(0., 0., 0.);
+        let eye_vector = Vector::new(0., 0., -1.);
+        let normal_vector = Vector::new(0., 0., -1.);
+        let light = Light::new(Point::new(0., 10., -10.), Color::white());
         let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
@@ -167,11 +167,11 @@ mod tests {
     #[test]
     fn ligthing_with_eye_in_path_of_reflection_vector() {
         let material = Material::default();
-        let position = Tuple::point(0., 0., 0.);
+        let position = Point::new(0., 0., 0.);
         let val = 2.0_f64.sqrt() / 2.;
-        let eye_vector = Tuple::vector(0., -val, -val);
-        let normal_vector = Tuple::vector(0., 0., -1.);
-        let light = Light::new(Tuple::point(0., 10., -10.), Color::white());
+        let eye_vector = Vector::new(0., -val, -val);
+        let normal_vector = Vector::new(0., 0., -1.);
+        let light = Light::new(Point::new(0., 10., -10.), Color::white());
         let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
@@ -183,10 +183,10 @@ mod tests {
     #[test]
     fn lighting_with_eye_behind_surface() {
         let material = Material::default();
-        let position = Tuple::point(0., 0., 0.);
-        let eye_vector = Tuple::vector(0., 0., -1.);
-        let normal_vector = Tuple::vector(0., 0., -1.);
-        let light = Light::new(Tuple::point(0., 0., 10.), Color::white());
+        let position = Point::new(0., 0., 0.);
+        let eye_vector = Vector::new(0., 0., -1.);
+        let normal_vector = Vector::new(0., 0., -1.);
+        let light = Light::new(Point::new(0., 0., 10.), Color::white());
         let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
@@ -197,10 +197,10 @@ mod tests {
     #[test]
     fn ligthing_with_surface_in_shadow() {
         let material = Material::default();
-        let position = Tuple::point(0., 0., 0.);
-        let eye_vector = Tuple::vector(0., 0., -1.);
-        let normal_vector = Tuple::vector(0., 0., -1.);
-        let light = Light::new(Tuple::point(0., 0., -10.), Color::white());
+        let position = Point::new(0., 0., 0.);
+        let eye_vector = Vector::new(0., 0., -1.);
+        let normal_vector = Vector::new(0., 0., -1.);
+        let light = Light::new(Point::new(0., 0., -10.), Color::white());
         let in_shadow = true;
         let object = Sphere::default();
         let result = material
@@ -226,15 +226,15 @@ mod tests {
             ..Default::default()
         };
 
-        let eye_vector = Tuple::vector(0., 0., -1.);
-        let normal_vector = Tuple::vector(0., 0., -1.);
-        let light = Light::new(Tuple::point(0., 0., -10.), Color::white());
+        let eye_vector = Vector::new(0., 0., -1.);
+        let normal_vector = Vector::new(0., 0., -1.);
+        let light = Light::new(Point::new(0., 0., -10.), Color::white());
         let shape = Sphere::default();
         let color1 = material
             .lighting(
                 &shape,
                 light,
-                Tuple::point(0.9, 0., 0.),
+                Point::new(0.9, 0., 0.),
                 eye_vector,
                 normal_vector,
                 false,
@@ -245,7 +245,7 @@ mod tests {
             .lighting(
                 &shape,
                 light,
-                Tuple::point(1.1, 0., 0.),
+                Point::new(1.1, 0., 0.),
                 eye_vector,
                 normal_vector,
                 false,

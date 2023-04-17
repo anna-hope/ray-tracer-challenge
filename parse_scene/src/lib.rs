@@ -379,11 +379,11 @@ fn construct_camera(description: &Mapping) -> Result<Camera> {
         .ok_or(ParseError::InvalidCameraParams("Missing 'up'".to_string()))?
         .get_f64_vec()?;
 
-    let from = Tuple::point(from_values[0], from_values[1], from_values[2]);
-    let to = Tuple::point(to_values[0], to_values[1], to_values[2]);
-    let up = Tuple::vector(up_values[0], up_values[1], up_values[2]);
+    let from = Point::new(from_values[0], from_values[1], from_values[2]);
+    let to = Point::new(to_values[0], to_values[1], to_values[2]);
+    let up = Vector::new(up_values[0], up_values[1], up_values[2]);
 
-    let transformation = compute_view_transformation(from, to, up)?;
+    let transformation = compute_view_transformation(from, to, up);
     let camera = Camera::new(width, height, field_of_view, transformation);
 
     Ok(camera)
@@ -402,7 +402,7 @@ fn construct_light(description: &Mapping) -> Result<Light> {
         ))?
         .get_f64_vec()?;
 
-    let position = Tuple::point(position_values[0], position_values[1], position_values[2]);
+    let position = Point::new(position_values[0], position_values[1], position_values[2]);
     let intensity = Color::new(
         intensity_values[0],
         intensity_values[1],
@@ -734,9 +734,9 @@ mod tests {
         let scene = parse_scene(input).unwrap();
 
         assert_eq!(scene.lights.len(), 2);
-        assert_eq!(scene.lights[0].position, Tuple::point(-10., 10., -10.));
+        assert_eq!(scene.lights[0].position, Point::new(-10., 10., -10.));
         assert_eq!(scene.lights[0].intensity, Color::new(1., 1., 1.));
-        assert_eq!(scene.lights[1].position, Tuple::point(10., 10., -10.));
+        assert_eq!(scene.lights[1].position, Point::new(10., 10., -10.));
         assert_eq!(scene.lights[1].intensity, Color::new(1., 1., 1.));
 
         assert_eq!(scene.objects.len(), 2);

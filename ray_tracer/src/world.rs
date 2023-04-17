@@ -6,7 +6,7 @@ use crate::{
     material::Material,
     shape::sphere::Sphere,
     shape::ShapeRef,
-    Color, Matrix, Ray, Result, Tuple,
+    Color, Matrix, Point, Ray, Result,
 };
 
 #[derive(Debug)]
@@ -58,7 +58,7 @@ impl World {
 
             let material = comps.object.material();
             let color = if material.reflectivity > 0. && material.transparency > 0. {
-                let reflectance = comps.schlick()?;
+                let reflectance = comps.schlick();
                 surface_color + reflected_color * reflectance + refracted_color * (1. - reflectance)
             } else {
                 surface_color + reflected_color + refracted_color
@@ -75,7 +75,7 @@ impl World {
         }
     }
 
-    fn is_shadowed(&self, point: Tuple, light: &Light) -> Result<bool> {
+    fn is_shadowed(&self, point: Point, light: &Light) -> Result<bool> {
         let distance_vector = light.position - point;
         let distance = distance_vector.magnitude();
         let direction = distance_vector.norm();
@@ -116,7 +116,7 @@ impl World {
             let n_ratio = n1 / n2;
 
             // cos(theta_i) is the same as the dot product of the two vectors
-            let cos_i = comps.eye_vector.dot(&comps.normal_vector)?;
+            let cos_i = comps.eye_vector.dot(comps.normal_vector);
 
             // find sin(theta_t)^2 via trigonometric identity
             let sin2_t = n_ratio.powi(2) * (1. - cos_i.powi(2));
@@ -152,7 +152,7 @@ impl Default for World {
     /// and two concentric spheres, where the outermost is a unit sphere
     /// and the inntermost has a radius of 0.5. Both lie at the origin.
     fn default() -> Self {
-        let light = Light::new(Tuple::point(-10., 10., -10.), Color::white());
+        let light = Light::new(Point::new(-10., 10., -10.), Color::white());
 
         let material = Material {
             color: Color::new(0.8, 1.0, 0.6),
@@ -187,7 +187,7 @@ impl Intersect for World {
 
 #[cfg(test)]
 mod tests {
-    use crate::{pattern, shape::plane::Plane};
+    use crate::{pattern, shape::plane::Plane, Vector};
 
     use super::*;
 
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn create_default_world() {
         let mut world = World::default();
-        let light = Light::new(Tuple::point(-10., 10., -10.), Color::white());
+        let light = Light::new(Point::new(-10., 10., -10.), Color::white());
         assert_eq!(world.lights, vec![light]);
 
         let color = Color::new(0.8, 1.0, 0.6);
@@ -236,7 +236,7 @@ mod tests {
     #[test]
     fn intersect_world_with_ray() {
         let world = World::default();
-        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
         let xs = world.intersect(&ray).unwrap();
         assert_eq!(xs.len(), 4);
         assert_eq!(xs[0].t, 4.);
@@ -248,7 +248,7 @@ mod tests {
     #[test]
     fn shading_intersection() {
         let world = World::default();
-        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
         let shape = &world.objects[0];
         let intersection = Intersection::new(4., shape.clone());
         let comps = intersection
@@ -261,10 +261,10 @@ mod tests {
     #[test]
     fn shading_intersection_from_inside() {
         let world = World {
-            lights: vec![Light::new(Tuple::point(0., 0.25, 0.), Color::white())],
+            lights: vec![Light::new(Point::new(0., 0.25, 0.), Color::white())],
             ..Default::default()
         };
-        let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
+        let ray = Ray::new(Point::new(0., 0., 0.), Vector::new(0., 0., 1.));
 
         let shape = &world.objects[1];
         let intersection = Intersection::new(0.5, shape.clone());
@@ -279,7 +279,7 @@ mod tests {
 
     #[test]
     fn shade_hit_is_given_intersection_in_shadow() {
-        let light = Light::new(Tuple::point(0., 0., -10.), Color::white());
+        let light = Light::new(Point::new(0., 0., -10.), Color::white());
         let sphere1 = Arc::<Sphere>::default();
         let sphere2 =
             Arc::new(Sphere::default().with_transformation(Matrix::translation(0., 0., 10.)));
@@ -288,7 +288,7 @@ mod tests {
             objects: vec![sphere1, sphere2.clone()],
         };
 
-        let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
+        let ray = Ray::new(Point::new(0., 0., 5.), Vector::new(0., 0., 1.));
         let intersection = Intersection::new(4., sphere2);
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
@@ -301,7 +301,7 @@ mod tests {
     fn color_when_ray_misses() {
         // when the ray fails to intersect anything, the returned color should be black
         let world = World::default();
-        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 1., 0.));
+        let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 1., 0.));
         let color = world.color_at(&ray, 5).unwrap();
         assert_eq!(color, Color::default());
     }
@@ -310,7 +310,7 @@ mod tests {
     fn color_when_ray_hits() {
         // our ray intersects the outermost sphere in the default world
         let world = World::default();
-        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
         let color = world.color_at(&ray, 5).unwrap();
         assert_eq!(color, Color::new(0.38066, 0.47583, 0.2855));
     }
@@ -332,7 +332,7 @@ mod tests {
         inner_material.ambient = 1.;
         inner.set_material(inner_material.clone());
 
-        let ray = Ray::new(Tuple::point(0., 0., 0.75), Tuple::vector(0., 0., -1.));
+        let ray = Ray::new(Point::new(0., 0., 0.75), Vector::new(0., 0., -1.));
         let color = world.color_at(&ray, 5).unwrap();
         assert_eq!(color, inner_material.color);
     }
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn no_shadow_when_nothing_is_collinear_with_point_and_light() {
         let world = World::default();
-        let point = Tuple::point(0., 10., 0.);
+        let point = Point::new(0., 10., 0.);
         let is_shadowed = world.is_shadowed(point, &world.lights[0]).unwrap();
         assert!(!is_shadowed);
     }
@@ -348,21 +348,21 @@ mod tests {
     #[test]
     fn shadow_when_object_is_between_point_and_light() {
         let world = World::default();
-        let point = Tuple::point(10., -10., 10.);
+        let point = Point::new(10., -10., 10.);
         assert!(world.is_shadowed(point, &world.lights[0]).unwrap());
     }
 
     #[test]
     fn no_shadow_when_object_is_behind_light() {
         let world = World::default();
-        let point = Tuple::point(-20., 20., -20.);
+        let point = Point::new(-20., 20., -20.);
         assert!(!world.is_shadowed(point, &world.lights[0]).unwrap());
     }
 
     #[test]
     fn no_shadow_when_object_is_behind_point() {
         let world = World::default();
-        let point = Tuple::point(-2., -2., -2.);
+        let point = Point::new(-2., -2., -2.);
         assert!(!world.is_shadowed(point, &world.lights[0]).unwrap());
     }
 
@@ -373,7 +373,7 @@ mod tests {
         // which would happen if we went the route of constructing a default world
         // then getting a mutable reference to its second shape
         // and trying to set the material on that directly
-        let light = Light::new(Tuple::point(-10., 10., -10.), Color::white());
+        let light = Light::new(Point::new(-10., 10., -10.), Color::white());
 
         let material = Material {
             color: Color::new(0.8, 1.0, 0.6),
@@ -392,7 +392,7 @@ mod tests {
             lights: vec![light],
             objects: vec![sphere1, sphere2],
         };
-        let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
+        let ray = Ray::new(Point::new(0., 0., 0.), Vector::new(0., 0., 1.));
 
         let intersection = Intersection::new(1., world.objects[1].clone());
         let comps = intersection
@@ -429,7 +429,7 @@ mod tests {
         };
 
         let val = 2.0_f64.sqrt() / 2.;
-        let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
+        let ray = Ray::new(Point::new(0., 0., -3.), Vector::new(0., -val, val));
         let intersection = Intersection::new(2.0_f64.sqrt(), world.objects[2].clone());
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
@@ -472,7 +472,7 @@ mod tests {
         };
 
         let val = 2.0_f64.sqrt() / 2.;
-        let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
+        let ray = Ray::new(Point::new(0., 0., -3.), Vector::new(0., -val, val));
         let intersection = Intersection::new(2.0_f64.sqrt(), world.objects[2].clone());
         let comps = intersection
             .prepare_computations(&ray, &[intersection.to_owned()])
@@ -499,7 +499,7 @@ mod tests {
         let sphere1 = Arc::new(Sphere::default().with_material(material));
         let sphere2 = Arc::new(Sphere::default().with_transformation(transformation));
 
-        let light = Light::new(Tuple::point(0., 0., 0.), Color::new(1., 1., 1.));
+        let light = Light::new(Point::new(0., 0., 0.), Color::new(1., 1., 1.));
 
         let lower = Arc::new(
             Plane::default()
@@ -520,7 +520,7 @@ mod tests {
 
         let world = World::new(vec![sphere1, sphere2, lower, upper], vec![light]);
 
-        let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 1., 0.));
+        let ray = Ray::new(Point::new(0., 0., 0.), Vector::new(0., 1., 0.));
 
         // should terminate successfully without entering infinite recursion
         let _ = world.color_at(&ray, 5).unwrap();
@@ -540,7 +540,7 @@ mod tests {
         world.objects.push(shape.clone());
 
         let val = 2.0_f64.sqrt() / 2.;
-        let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
+        let ray = Ray::new(Point::new(0., 0., -3.), Vector::new(0., -val, val));
         let intersection = Intersection::new(2.0_f64.sqrt(), shape);
 
         let comps = intersection
@@ -554,7 +554,7 @@ mod tests {
     fn refracted_color_with_opaque_surface() {
         let world = World::default();
         let shape = &world.objects[0];
-        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
         let xs = &[
             Intersection::new(4., shape.clone()),
             Intersection::new(6., shape.clone()),
@@ -573,7 +573,7 @@ mod tests {
         material.refractive_index = 1.5;
         shape.set_material(material);
 
-        let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
         let shape = Arc::clone(&world.objects[0]);
         let xs = &[
             Intersection::new(4., shape.clone()),
@@ -595,7 +595,7 @@ mod tests {
         shape.set_material(material);
 
         let val = 2.0_f64.sqrt() / 2.;
-        let ray = Ray::new(Tuple::point(0., 0., val), Tuple::vector(0., 1., 0.));
+        let ray = Ray::new(Point::new(0., 0., val), Vector::new(0., 1., 0.));
         let shape = Arc::clone(&world.objects[0]);
         let xs = &[
             Intersection::new(-val, shape.clone()),
@@ -634,7 +634,7 @@ mod tests {
         let a = &world.objects[0];
         let b = &world.objects[1];
 
-        let ray = Ray::new(Tuple::point(0., 0., 0.1), Tuple::vector(0., 1., 0.));
+        let ray = Ray::new(Point::new(0., 0., 0.1), Vector::new(0., 1., 0.));
         let xs = &[
             Intersection::new(-0.9899, a.clone()),
             Intersection::new(-0.4899, b.clone()),
@@ -674,7 +674,7 @@ mod tests {
         world.objects.push(Arc::new(ball));
 
         let val = 2.0_f64.sqrt() / 2.;
-        let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
+        let ray = Ray::new(Point::new(0., 0., -3.), Vector::new(0., -val, val));
         let xs = &[Intersection::new(2.0_f64.sqrt(), Arc::new(floor))];
         let comps = xs[0].prepare_computations(&ray, xs).unwrap();
         let color = world.shade_hit(&comps, 5).unwrap();
@@ -707,7 +707,7 @@ mod tests {
         world.objects.push(Arc::new(ball));
 
         let val = 2.0_f64.sqrt() / 2.;
-        let ray = Ray::new(Tuple::point(0., 0., -3.), Tuple::vector(0., -val, val));
+        let ray = Ray::new(Point::new(0., 0., -3.), Vector::new(0., -val, val));
 
         let xs = &[Intersection::new(2.0_f64.sqrt(), Arc::new(floor))];
         let comps = xs[0].prepare_computations(&ray, xs).unwrap();

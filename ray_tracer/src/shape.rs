@@ -9,7 +9,7 @@ use slotmap::{DefaultKey, SlotMap};
 use crate::{
     intersection::{Intersect, Intersection, Ray},
     material::Material,
-    Matrix, Result, Tuple,
+    Matrix, Point, Result, Vector,
 };
 
 pub type ShapeRef = Arc<dyn Shape>;
@@ -31,14 +31,14 @@ pub enum ShapeType {
 
 pub trait Shape: Intersect + Send + Sync {
     /// Computes the normal vector at the world point.
-    fn normal_at(&self, point: Tuple) -> Result<Tuple> {
+    fn normal_at(&self, point: Point) -> Result<Vector> {
         let local_point = self.world_to_object(point)?;
         let local_normal = self.local_normal_at(local_point);
         self.normal_to_world(local_normal)
     }
 
     /// Computes the local normal for a given point.
-    fn local_normal_at(&self, local_point: Tuple) -> Tuple;
+    fn local_normal_at(&self, local_point: Point) -> Vector;
 
     /// Returns the transformation matrix for this Shape.
     fn transformation(&self) -> Matrix;
@@ -61,7 +61,7 @@ pub trait Shape: Intersect + Send + Sync {
 
     fn set_parent(&mut self, parent: DefaultKey);
 
-    fn world_to_object(&self, point: Tuple) -> Result<Tuple> {
+    fn world_to_object(&self, point: Point) -> Result<Point> {
         let point = if let Some(parent_key) = self.parent() {
             let shapes = SHAPES.read();
             let parent = Arc::clone(&shapes[parent_key]);
@@ -73,9 +73,8 @@ pub trait Shape: Intersect + Send + Sync {
         Ok(self.transformation().inverse()? * point)
     }
 
-    fn normal_to_world(&self, normal: Tuple) -> Result<Tuple> {
+    fn normal_to_world(&self, normal: Vector) -> Result<Vector> {
         let mut normal = self.transformation().inverse()?.transpose() * normal;
-        normal.w = 0.;
         normal = normal.norm();
 
         if let Some(parent_key) = self.parent() {
@@ -171,12 +170,11 @@ pub mod sphere {
             // the vector from the sphere's center, to the ray origin
             // (the sphere is centered at the world origin)
             // (subtracting a point from a point gives us a vector)
-            let sphere_to_ray = ray.origin - Tuple::point(0., 0., 0.);
+            let sphere_to_ray = ray.origin - Point::new(0., 0., 0.);
 
-            // ok to unwrap() here, since we know for sure sphere_to_ray is a vector
-            let a = ray.direction.dot(&ray.direction).unwrap();
-            let b = 2. * ray.direction.dot(&sphere_to_ray).unwrap();
-            let c = sphere_to_ray.dot(&sphere_to_ray).unwrap() - 1.;
+            let a = ray.direction.dot(ray.direction);
+            let b = 2. * ray.direction.dot(sphere_to_ray);
+            let c = sphere_to_ray.dot(sphere_to_ray) - 1.;
 
             let discriminant = b.powi(2) - 4. * a * c;
             if discriminant < 0. {
@@ -223,8 +221,8 @@ pub mod sphere {
             self.transformation.clone()
         }
 
-        fn local_normal_at(&self, local_point: Tuple) -> Tuple {
-            local_point - Tuple::point(0., 0., 0.)
+        fn local_normal_at(&self, local_point: Point) -> Vector {
+            local_point - Point::new(0., 0., 0.)
         }
 
         fn material(&self) -> Material {
@@ -258,7 +256,7 @@ pub mod sphere {
 
         #[test]
         fn ray_intersects_sphere_at_2_points() {
-            let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
             let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
@@ -268,7 +266,7 @@ pub mod sphere {
 
         #[test]
         fn ray_intersects_sphere_at_tangent() {
-            let ray = Ray::new(Tuple::point(0., 1., -5.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 1., -5.), Vector::new(0., 0., 1.));
             let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
@@ -278,7 +276,7 @@ pub mod sphere {
 
         #[test]
         fn ray_misses_sphere() {
-            let ray = Ray::new(Tuple::point(0., 2., -5.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 2., -5.), Vector::new(0., 0., 1.));
             let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert!(xs.is_empty());
@@ -286,7 +284,7 @@ pub mod sphere {
 
         #[test]
         fn ray_originates_inside_sphere() {
-            let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 0., 0.), Vector::new(0., 0., 1.));
             let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
@@ -296,7 +294,7 @@ pub mod sphere {
 
         #[test]
         fn sphere_is_behind_ray() {
-            let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 0., 5.), Vector::new(0., 0., 1.));
             let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
@@ -306,7 +304,7 @@ pub mod sphere {
 
         #[test]
         fn intersect_sets_object_on_intersection() {
-            let ray = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 0., 5.), Vector::new(0., 0., 1.));
             let sphere = Sphere::default();
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
@@ -329,7 +327,7 @@ pub mod sphere {
 
         #[test]
         fn intersect_scaled_sphere_with_ray() {
-            let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
             let sphere = Sphere::default().with_transformation(Matrix::scaling(2., 2., 2.));
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
@@ -339,7 +337,7 @@ pub mod sphere {
 
         #[test]
         fn intersect_translated_sphere_with_ray() {
-            let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
             let sphere = Sphere::default().with_transformation(Matrix::translation(5., 0., 0.));
             let xs = sphere.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 0);
@@ -348,37 +346,37 @@ pub mod sphere {
         #[test]
         fn normal_on_sphere_x_axis() {
             let sphere = Sphere::default();
-            let normal = sphere.normal_at(Tuple::point(1., 0., 0.)).unwrap();
-            assert_eq!(normal, Tuple::vector(1., 0., 0.));
+            let normal = sphere.normal_at(Point::new(1., 0., 0.)).unwrap();
+            assert_eq!(normal, Vector::new(1., 0., 0.));
         }
 
         #[test]
         fn normal_on_sphere_y_axis() {
             let sphere = Sphere::default();
-            let normal = sphere.normal_at(Tuple::point(0., 1., 0.)).unwrap();
-            assert_eq!(normal, Tuple::vector(0., 1., 0.));
+            let normal = sphere.normal_at(Point::new(0., 1., 0.)).unwrap();
+            assert_eq!(normal, Vector::new(0., 1., 0.));
         }
 
         #[test]
         fn normal_on_sphere_z_axis() {
             let sphere = Sphere::default();
-            let normal = sphere.normal_at(Tuple::point(0., 0., 1.)).unwrap();
-            assert_eq!(normal, Tuple::vector(0., 0., 1.));
+            let normal = sphere.normal_at(Point::new(0., 0., 1.)).unwrap();
+            assert_eq!(normal, Vector::new(0., 0., 1.));
         }
 
         #[test]
         fn normal_on_sphere_nonaxial() {
             let sphere = Sphere::default();
             let val = 3.0_f64.sqrt() / 3.;
-            let normal = sphere.normal_at(Tuple::point(val, val, val)).unwrap();
-            assert_eq!(normal, Tuple::vector(val, val, val));
+            let normal = sphere.normal_at(Point::new(val, val, val)).unwrap();
+            assert_eq!(normal, Vector::new(val, val, val));
         }
 
         #[test]
         fn normal_is_normalized_vector() {
             let sphere = Sphere::default();
             let val = 3.0_f64.sqrt() / 3.;
-            let normal = sphere.normal_at(Tuple::point(val, val, val)).unwrap();
+            let normal = sphere.normal_at(Point::new(val, val, val)).unwrap();
             assert_eq!(normal, normal.norm());
         }
 
@@ -386,9 +384,9 @@ pub mod sphere {
         fn compute_normal_translated_sphere() {
             let sphere = Sphere::default().with_transformation(Matrix::translation(0., 1., 0.));
             let normal = sphere
-                .normal_at(Tuple::point(0., 1.70711, -FRAC_1_SQRT_2))
+                .normal_at(Point::new(0., 1.70711, -FRAC_1_SQRT_2))
                 .unwrap();
-            assert_eq!(normal, Tuple::vector(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
+            assert_eq!(normal, Vector::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
         }
 
         #[test]
@@ -396,8 +394,8 @@ pub mod sphere {
             let matrix = Matrix::identity().rotate_z(PI / 5.).scale(1., 0.5, 1.);
             let sphere = Sphere::default().with_transformation(matrix);
             let val = 2.0_f64.sqrt() / 2.;
-            let normal = sphere.normal_at(Tuple::point(0., val, -val)).unwrap();
-            assert_eq!(normal, Tuple::vector(0., 0.97014, -0.24254));
+            let normal = sphere.normal_at(Point::new(0., val, -val)).unwrap();
+            assert_eq!(normal, Vector::new(0., 0.97014, -0.24254));
         }
 
         #[test]
@@ -491,9 +489,9 @@ pub mod plane {
             self.transformation.clone()
         }
 
-        fn local_normal_at(&self, _point: Tuple) -> Tuple {
+        fn local_normal_at(&self, _point: Point) -> Vector {
             // Every single point on the plane has the same normal
-            Tuple::vector(0., 1., 0.)
+            Vector::new(0., 1., 0.)
         }
 
         fn id(&self) -> usize {
@@ -528,18 +526,18 @@ pub mod plane {
         #[test]
         fn normal_of_plane_is_constant_everywhere() {
             let plane = Plane::default();
-            let normal_1 = plane.local_normal_at(Tuple::point(0., 0., 0.));
-            let normal_2 = plane.local_normal_at(Tuple::point(10., 0., -10.));
-            let normal_3 = plane.local_normal_at(Tuple::point(-5., 0., 150.));
-            assert_eq!(normal_1, Tuple::vector(0., 1., 0.));
-            assert_eq!(normal_2, Tuple::vector(0., 1., 0.));
-            assert_eq!(normal_3, Tuple::vector(0., 1., 0.));
+            let normal_1 = plane.local_normal_at(Point::new(0., 0., 0.));
+            let normal_2 = plane.local_normal_at(Point::new(10., 0., -10.));
+            let normal_3 = plane.local_normal_at(Point::new(-5., 0., 150.));
+            assert_eq!(normal_1, Vector::new(0., 1., 0.));
+            assert_eq!(normal_2, Vector::new(0., 1., 0.));
+            assert_eq!(normal_3, Vector::new(0., 1., 0.));
         }
 
         #[test]
         fn intersect_ray_parallel_to_plane() {
             let plane = Plane::default();
-            let ray = Ray::new(Tuple::point(0., 10., 0.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 10., 0.), Vector::new(0., 0., 1.));
             let xs = plane.local_intersect(&ray);
             assert!(xs.is_empty());
         }
@@ -547,7 +545,7 @@ pub mod plane {
         #[test]
         fn intersect_with_coplanar_ray() {
             let plane = Plane::default();
-            let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 0., 0.), Vector::new(0., 0., 1.));
             let xs = plane.local_intersect(&ray);
             assert!(xs.is_empty());
         }
@@ -555,7 +553,7 @@ pub mod plane {
         #[test]
         fn ray_intersecting_plane_from_above() {
             let plane = Plane::default();
-            let ray = Ray::new(Tuple::point(0., 1., 0.), Tuple::vector(0., -1., 0.));
+            let ray = Ray::new(Point::new(0., 1., 0.), Vector::new(0., -1., 0.));
             let xs = plane.local_intersect(&ray);
             assert_eq!(xs.len(), 1);
             assert_eq!(xs[0].t, 1.);
@@ -566,7 +564,7 @@ pub mod plane {
         #[test]
         fn ray_intersecting_plane_from_below() {
             let plane = Plane::default();
-            let ray = Ray::new(Tuple::point(0., -1., 0.), Tuple::vector(0., 1., 0.));
+            let ray = Ray::new(Point::new(0., -1., 0.), Vector::new(0., 1., 0.));
             let xs = plane.local_intersect(&ray);
             assert_eq!(xs.len(), 1);
             assert_eq!(xs[0].t, 1.);
@@ -679,7 +677,7 @@ pub mod cube {
         }
 
         /// Always picks the component of the point that has the largest absolute value.
-        fn local_normal_at(&self, point: Tuple) -> Tuple {
+        fn local_normal_at(&self, point: Point) -> Vector {
             // we know the array contains elements, so ok to unwrap here
             let max_c = *[point.x.abs(), point.y.abs(), point.z.abs()]
                 .iter()
@@ -687,11 +685,11 @@ pub mod cube {
                 .unwrap();
 
             if max_c == point.x.abs() {
-                Tuple::vector(point.x, 0., 0.)
+                Vector::new(point.x, 0., 0.)
             } else if max_c == point.y.abs() {
-                Tuple::vector(0., point.y, 0.)
+                Vector::new(0., point.y, 0.)
             } else {
-                Tuple::vector(0., 0., point.z)
+                Vector::new(0., 0., point.z)
             }
         }
 
@@ -727,48 +725,13 @@ pub mod cube {
         fn ray_intersects_cube() {
             let cube = Cube::default();
             let examples = [
-                (
-                    Tuple::point(5., 0.5, 0.),
-                    Tuple::vector(-1., 0., 0.),
-                    4.,
-                    6.,
-                ),
-                (
-                    Tuple::point(-5., 0.5, 0.),
-                    Tuple::vector(1., 0., 0.),
-                    4.,
-                    6.,
-                ),
-                (
-                    Tuple::point(0.5, 5., 0.),
-                    Tuple::vector(0., -1., 0.),
-                    4.,
-                    6.,
-                ),
-                (
-                    Tuple::point(0.5, -5., 0.),
-                    Tuple::vector(0., 1., 0.),
-                    4.,
-                    6.,
-                ),
-                (
-                    Tuple::point(0.5, 0., 5.),
-                    Tuple::vector(0., 0., -1.),
-                    4.,
-                    6.,
-                ),
-                (
-                    Tuple::point(0.5, 0., -5.),
-                    Tuple::vector(0., 0., 1.),
-                    4.,
-                    6.,
-                ),
-                (
-                    Tuple::point(0., 0.5, 0.),
-                    Tuple::vector(0., 0., 1.),
-                    -1.,
-                    1.,
-                ),
+                (Point::new(5., 0.5, 0.), Vector::new(-1., 0., 0.), 4., 6.),
+                (Point::new(-5., 0.5, 0.), Vector::new(1., 0., 0.), 4., 6.),
+                (Point::new(0.5, 5., 0.), Vector::new(0., -1., 0.), 4., 6.),
+                (Point::new(0.5, -5., 0.), Vector::new(0., 1., 0.), 4., 6.),
+                (Point::new(0.5, 0., 5.), Vector::new(0., 0., -1.), 4., 6.),
+                (Point::new(0.5, 0., -5.), Vector::new(0., 0., 1.), 4., 6.),
+                (Point::new(0., 0.5, 0.), Vector::new(0., 0., 1.), -1., 1.),
             ];
 
             for (origin, direction, t1, t2) in examples {
@@ -784,21 +747,12 @@ pub mod cube {
         fn ray_misses_cube() {
             let cube = Cube::default();
             let examples = [
-                (
-                    Tuple::point(-2., 0., 0.),
-                    Tuple::vector(0.2673, 0.5345, 0.8018),
-                ),
-                (
-                    Tuple::point(0., -2., 0.),
-                    Tuple::vector(0.8018, 0.2673, 0.5345),
-                ),
-                (
-                    Tuple::point(0., 0., -2.),
-                    Tuple::vector(0.5345, 0.8018, 0.2673),
-                ),
-                (Tuple::point(2., 0., 2.), Tuple::vector(0., 0., -1.)),
-                (Tuple::point(0., 2., 2.), Tuple::vector(0., -1., 0.)),
-                (Tuple::point(2., 2., 0.), Tuple::vector(-1., 0., 0.)),
+                (Point::new(-2., 0., 0.), Vector::new(0.2673, 0.5345, 0.8018)),
+                (Point::new(0., -2., 0.), Vector::new(0.8018, 0.2673, 0.5345)),
+                (Point::new(0., 0., -2.), Vector::new(0.5345, 0.8018, 0.2673)),
+                (Point::new(2., 0., 2.), Vector::new(0., 0., -1.)),
+                (Point::new(0., 2., 2.), Vector::new(0., -1., 0.)),
+                (Point::new(2., 2., 0.), Vector::new(-1., 0., 0.)),
             ];
 
             for (origin, direction) in examples {
@@ -812,14 +766,14 @@ pub mod cube {
         fn normal_on_surface_of_cube() {
             let cube = Cube::default();
             let examples = [
-                (Tuple::point(1., 0.5, -0.8), Tuple::vector(1., 0., 0.)),
-                (Tuple::point(-1., -0.2, 0.9), Tuple::vector(-1., 0., 0.)),
-                (Tuple::point(0.4, 1., -0.1), Tuple::vector(0., 1., 0.)),
-                (Tuple::point(0.3, -1., 0.7), Tuple::vector(0., -1., 0.)),
-                (Tuple::point(-0.6, 0.3, 1.), Tuple::vector(0., 0., 1.)),
-                (Tuple::point(0.4, 0.4, -1.), Tuple::vector(0., 0., -1.)),
-                (Tuple::point(1., 1., 1.), Tuple::vector(1., 0., 0.)),
-                (Tuple::point(-1., -1., -1.), Tuple::vector(-1., 0., 0.)),
+                (Point::new(1., 0.5, -0.8), Vector::new(1., 0., 0.)),
+                (Point::new(-1., -0.2, 0.9), Vector::new(-1., 0., 0.)),
+                (Point::new(0.4, 1., -0.1), Vector::new(0., 1., 0.)),
+                (Point::new(0.3, -1., 0.7), Vector::new(0., -1., 0.)),
+                (Point::new(-0.6, 0.3, 1.), Vector::new(0., 0., 1.)),
+                (Point::new(0.4, 0.4, -1.), Vector::new(0., 0., -1.)),
+                (Point::new(1., 1., 1.), Vector::new(1., 0., 0.)),
+                (Point::new(-1., -1., -1.), Vector::new(-1., 0., 0.)),
             ];
 
             for (point, expected_normal) in examples {
@@ -958,7 +912,7 @@ pub mod cylinder {
             self.transformation.clone()
         }
 
-        fn local_normal_at(&self, point: Tuple) -> Tuple {
+        fn local_normal_at(&self, point: Point) -> Vector {
             // we must check to see which end cap the point corresponds to
             // or see if it lies on the cylinder itself
             // see p.187 of the book for explanation of the algorithm
@@ -967,11 +921,11 @@ pub mod cylinder {
             let distance = point.x.powi(2) + point.z.powi(2);
 
             if distance < 1. && point.y >= self.maximum - EPSILON {
-                Tuple::vector(0., 1., 0.)
+                Vector::new(0., 1., 0.)
             } else if distance < 1. && point.y <= self.minimum + EPSILON {
-                Tuple::vector(0., -1., 0.)
+                Vector::new(0., -1., 0.)
             } else {
-                Tuple::vector(point.x, 0., point.z)
+                Vector::new(point.x, 0., point.z)
             }
         }
 
@@ -1014,9 +968,9 @@ pub mod cylinder {
         fn ray_misses_cylinder() {
             let cylinder = Cylinder::default();
             let examples = [
-                (Tuple::point(1., 0., 0.), Tuple::vector(0., 1., 0.)),
-                (Tuple::point(0., 0., 0.), Tuple::vector(0., 1., 0.)),
-                (Tuple::point(0., 0., -5.), Tuple::vector(1., 1., 1.)),
+                (Point::new(1., 0., 0.), Vector::new(0., 1., 0.)),
+                (Point::new(0., 0., 0.), Vector::new(0., 1., 0.)),
+                (Point::new(0., 0., -5.), Vector::new(1., 1., 1.)),
             ];
             for (origin, direction) in examples {
                 let direction = direction.norm();
@@ -1030,11 +984,11 @@ pub mod cylinder {
         fn ray_strikes_cylinder() {
             let cylinder = Cylinder::default();
             let examples = [
-                (Tuple::point(1., 0., -5.), Tuple::vector(0., 0., 1.), 5., 5.),
-                (Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.), 4., 6.),
+                (Point::new(1., 0., -5.), Vector::new(0., 0., 1.), 5., 5.),
+                (Point::new(0., 0., -5.), Vector::new(0., 0., 1.), 4., 6.),
                 (
-                    Tuple::point(0.5, 0., -5.),
-                    Tuple::vector(0.1, 1., 1.),
+                    Point::new(0.5, 0., -5.),
+                    Vector::new(0.1, 1., 1.),
                     6.80798,
                     7.08872,
                 ),
@@ -1055,10 +1009,10 @@ pub mod cylinder {
         fn normal_vector_on_cylinder() {
             let cylinder = Cylinder::default();
             let examples = [
-                (Tuple::point(1., 0., 0.), Tuple::vector(1., 0., 0.)),
-                (Tuple::point(0., 5., -1.), Tuple::vector(0., 0., -1.)),
-                (Tuple::point(0., -2., 1.), Tuple::vector(0., 0., 1.)),
-                (Tuple::point(-1., 1., 0.), Tuple::vector(-1., 0., 0.)),
+                (Point::new(1., 0., 0.), Vector::new(1., 0., 0.)),
+                (Point::new(0., 5., -1.), Vector::new(0., 0., -1.)),
+                (Point::new(0., -2., 1.), Vector::new(0., 0., 1.)),
+                (Point::new(-1., 1., 0.), Vector::new(-1., 0., 0.)),
             ];
 
             for (point, expected_normal) in examples {
@@ -1079,12 +1033,12 @@ pub mod cylinder {
             let cylinder =
                 Cylinder::new(Matrix::identity(), Material::default(), 1., 2., false, None);
             let examples = [
-                (Tuple::point(0., 1.5, 0.), Tuple::vector(0.1, 1., 0.), 0),
-                (Tuple::point(0., 3., -5.), Tuple::vector(0., 0., 1.), 0),
-                (Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.), 0),
-                (Tuple::point(0., 2., -5.), Tuple::vector(0., 0., 1.), 0),
-                (Tuple::point(0., 1., -5.), Tuple::vector(0., 0., 1.), 0),
-                (Tuple::point(0., 1.5, -2.), Tuple::vector(0., 0., 1.), 2),
+                (Point::new(0., 1.5, 0.), Vector::new(0.1, 1., 0.), 0),
+                (Point::new(0., 3., -5.), Vector::new(0., 0., 1.), 0),
+                (Point::new(0., 0., -5.), Vector::new(0., 0., 1.), 0),
+                (Point::new(0., 2., -5.), Vector::new(0., 0., 1.), 0),
+                (Point::new(0., 1., -5.), Vector::new(0., 0., 1.), 0),
+                (Point::new(0., 1.5, -2.), Vector::new(0., 0., 1.), 2),
             ];
 
             for (point, direction, count) in examples {
@@ -1106,11 +1060,11 @@ pub mod cylinder {
             let cylinder =
                 Cylinder::new(Matrix::identity(), Material::default(), 1., 2., true, None);
             let examples = [
-                (Tuple::point(0., 3., 0.), Tuple::vector(0., -1., 0.), 2),
-                (Tuple::point(0., 3., -2.), Tuple::vector(0., -1., 2.), 2),
-                (Tuple::point(0., 4., -2.), Tuple::vector(0., -1., 1.), 2),
-                (Tuple::point(0., 0., -2.), Tuple::vector(0., 1., 2.), 2),
-                (Tuple::point(0., -1., -2.), Tuple::vector(0., 1., 1.), 2),
+                (Point::new(0., 3., 0.), Vector::new(0., -1., 0.), 2),
+                (Point::new(0., 3., -2.), Vector::new(0., -1., 2.), 2),
+                (Point::new(0., 4., -2.), Vector::new(0., -1., 1.), 2),
+                (Point::new(0., 0., -2.), Vector::new(0., 1., 2.), 2),
+                (Point::new(0., -1., -2.), Vector::new(0., 1., 1.), 2),
             ];
 
             for (point, direction, count) in examples {
@@ -1126,12 +1080,12 @@ pub mod cylinder {
             let cylinder =
                 Cylinder::new(Matrix::identity(), Material::default(), 1., 2., true, None);
             let examples = [
-                (Tuple::point(0., 1., 0.), Tuple::vector(0., -1., 0.)),
-                (Tuple::point(0.5, 1., 0.), Tuple::vector(0., -1., 0.)),
-                (Tuple::point(0., 1., 0.5), Tuple::vector(0., -1., 0.)),
-                (Tuple::point(0., 2., 0.), Tuple::vector(0., 1., 0.)),
-                (Tuple::point(0.5, 2., 0.), Tuple::vector(0., 1., 0.)),
-                (Tuple::point(0., 2., 0.5), Tuple::vector(0., 1., 0.)),
+                (Point::new(0., 1., 0.), Vector::new(0., -1., 0.)),
+                (Point::new(0.5, 1., 0.), Vector::new(0., -1., 0.)),
+                (Point::new(0., 1., 0.5), Vector::new(0., -1., 0.)),
+                (Point::new(0., 2., 0.), Vector::new(0., 1., 0.)),
+                (Point::new(0.5, 2., 0.), Vector::new(0., 1., 0.)),
+                (Point::new(0., 2., 0.5), Vector::new(0., 1., 0.)),
             ];
 
             for (point, expected_normal) in examples {
@@ -1272,17 +1226,17 @@ pub mod cone {
             self.id
         }
 
-        fn local_normal_at(&self, point: Tuple) -> Tuple {
+        fn local_normal_at(&self, point: Point) -> Vector {
             let distance = point.x.powi(2) + point.z.powi(2);
 
             if distance < 1. && point.y >= self.maximum - EPSILON {
-                Tuple::vector(0., 1., 0.)
+                Vector::new(0., 1., 0.)
             } else if distance < 1. && point.y <= self.minimum + EPSILON {
-                Tuple::vector(0., -1., 0.)
+                Vector::new(0., -1., 0.)
             } else {
                 let y = (point.x.powi(2) + point.z.powi(2)).sqrt();
                 let y = if point.y > 0. { -y } else { y };
-                Tuple::vector(point.x, y, point.z)
+                Vector::new(point.x, y, point.z)
             }
         }
 
@@ -1326,16 +1280,16 @@ pub mod cone {
         fn intersecting_cone_with_ray() {
             let shape = Cone::default();
             let examples = [
-                (Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.), 5., 5.),
+                (Point::new(0., 0., -5.), Vector::new(0., 0., 1.), 5., 5.),
                 (
-                    Tuple::point(0., 0., -5.),
-                    Tuple::vector(1., 1., 1.),
+                    Point::new(0., 0., -5.),
+                    Vector::new(1., 1., 1.),
                     8.66025,
                     8.66025,
                 ),
                 (
-                    Tuple::point(1., 1., -5.),
-                    Tuple::vector(-0.5, -1., 1.),
+                    Point::new(1., 1., -5.),
+                    Vector::new(-0.5, -1., 1.),
                     4.55006,
                     49.44994,
                 ),
@@ -1355,8 +1309,8 @@ pub mod cone {
         #[test]
         fn intersect_cone_with_ray_parallel_to_one_of_its_halves() {
             let shape = Cone::default();
-            let direction = Tuple::vector(0., 1., 1.).norm();
-            let ray = Ray::new(Tuple::point(0., 0., -1.), direction);
+            let direction = Vector::new(0., 1., 1.).norm();
+            let ray = Ray::new(Point::new(0., 0., -1.), direction);
             let xs = shape.local_intersect(&ray);
             assert_eq!(xs.len(), 1);
             assert!(equal(xs[0].t, 0.35355));
@@ -1373,9 +1327,9 @@ pub mod cone {
                 None,
             );
             let examples = [
-                (Tuple::point(0., 0., -5.), Tuple::vector(0., 1., 0.), 0),
-                (Tuple::point(0., 0., -0.25), Tuple::vector(0., 1., 1.), 2),
-                (Tuple::point(0., 0., -0.25), Tuple::vector(0., 1., 0.), 4),
+                (Point::new(0., 0., -5.), Vector::new(0., 1., 0.), 0),
+                (Point::new(0., 0., -0.25), Vector::new(0., 1., 1.), 2),
+                (Point::new(0., 0., -0.25), Vector::new(0., 1., 0.), 4),
             ];
 
             for (origin, direction, count) in examples {
@@ -1390,12 +1344,9 @@ pub mod cone {
         fn compute_normal_vector_on_cone() {
             let shape = Cone::default();
             let examples = [
-                (Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 0.)),
-                (
-                    Tuple::point(1., 1., 1.),
-                    Tuple::vector(1., -2.0_f64.sqrt(), 1.),
-                ),
-                (Tuple::point(-1., -1., 0.), Tuple::vector(-1., 1., 0.)),
+                (Point::new(0., 0., 0.), Vector::new(0., 0., 0.)),
+                (Point::new(1., 1., 1.), Vector::new(1., -2.0_f64.sqrt(), 1.)),
+                (Point::new(-1., -1., 0.), Vector::new(-1., 1., 0.)),
             ];
 
             for (point, expected_normal) in examples {
@@ -1468,7 +1419,7 @@ pub mod group {
             self.id
         }
 
-        fn local_normal_at(&self, _: Tuple) -> Tuple {
+        fn local_normal_at(&self, _: Point) -> Vector {
             unimplemented!()
         }
 
@@ -1574,7 +1525,7 @@ pub mod group {
         #[test]
         fn intersect_ray_with_empty_group() {
             let group = Group::default();
-            let ray = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 0., 0.), Vector::new(0., 0., 1.));
             let xs = group.local_intersect(&ray).unwrap();
             assert!(xs.is_empty());
         }
@@ -1597,7 +1548,7 @@ pub mod group {
             group.add_child(&mut s2);
             group.add_child(&mut s3);
 
-            let ray = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
             let xs = group.local_intersect(&ray).unwrap();
 
             assert_eq!(xs.len(), 4);
@@ -1618,7 +1569,7 @@ pub mod group {
             let mut shape: ShapeRef = Arc::new(shape);
             group.add_child(&mut shape);
 
-            let ray = Ray::new(Tuple::point(10., 0., -10.), Tuple::vector(0., 0., 1.));
+            let ray = Ray::new(Point::new(10., 0., -10.), Vector::new(0., 0., 1.));
             let xs = group.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
         }
@@ -1696,8 +1647,8 @@ mod tests {
             self.material = material;
         }
 
-        fn local_normal_at(&self, local_point: Tuple) -> Tuple {
-            Tuple::point(local_point.x, local_point.y, local_point.z)
+        fn local_normal_at(&self, local_point: Point) -> Vector {
+            Vector::new(local_point.x, local_point.y, local_point.z)
         }
 
         fn parent(&self) -> Option<DefaultKey> {
@@ -1742,9 +1693,9 @@ mod tests {
     fn compute_normal_on_translated_shape() {
         let shape = TestShape::default().with_transformation(Matrix::translation(0., 1., 0.));
         let normal = shape
-            .normal_at(Tuple::point(0., 1.70711, -FRAC_1_SQRT_2))
+            .normal_at(Point::new(0., 1.70711, -FRAC_1_SQRT_2))
             .unwrap();
-        assert_eq!(normal, Tuple::vector(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
+        assert_eq!(normal, Vector::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
     }
 
     #[test]
@@ -1752,8 +1703,8 @@ mod tests {
         let transformation = Matrix::identity().rotate_z(PI / 2.).scale(1., 0.5, 1.);
         let shape = TestShape::default().with_transformation(transformation);
         let val = 2.0_f64.sqrt() / 2.;
-        let normal = shape.normal_at(Tuple::point(0., val, -val)).unwrap();
-        assert_eq!(normal, Tuple::vector(0., 0.97014, -0.24254));
+        let normal = shape.normal_at(Point::new(0., val, -val)).unwrap();
+        assert_eq!(normal, Vector::new(0., 0.97014, -0.24254));
     }
 
     #[test]
@@ -1781,8 +1732,8 @@ mod tests {
         group1.add_child(&mut group2);
         group2.add_child(&mut sphere);
 
-        let point = sphere.world_to_object(Tuple::point(-2., 0., -10.)).unwrap();
-        assert_eq!(point, Tuple::point(0., 0., -1.));
+        let point = sphere.world_to_object(Point::new(-2., 0., -10.)).unwrap();
+        assert_eq!(point, Point::new(0., 0., -1.));
     }
 
     #[test]
@@ -1804,14 +1755,12 @@ mod tests {
         group2.add_child(&mut sphere);
 
         let val = 3.0_f64.sqrt() / 3.;
-        let normal = sphere
-            .normal_to_world(Tuple::vector(val, val, val))
-            .unwrap();
+        let normal = sphere.normal_to_world(Vector::new(val, val, val)).unwrap();
 
         // need more precise values (5 significant figures)
         // than the book provides
         // cf. book values (0.2857, 0.4286, -0.8571)
-        assert_eq!(normal, Tuple::vector(0.28571, 0.42857, -0.85714));
+        assert_eq!(normal, Vector::new(0.28571, 0.42857, -0.85714));
     }
 
     #[test]
@@ -1833,9 +1782,9 @@ mod tests {
         group2.add_child(&mut sphere);
 
         let normal = sphere
-            .normal_at(Tuple::point(1.7321, 1.1547, -5.5774))
+            .normal_at(Point::new(1.7321, 1.1547, -5.5774))
             .unwrap();
         // cf. book values (0.2857, 0.4286, -0.8571)
-        assert_eq!(normal, Tuple::vector(0.2857, 0.42854, -0.85716));
+        assert_eq!(normal, Vector::new(0.2857, 0.42854, -0.85716));
     }
 }

@@ -17,7 +17,7 @@ pub use color::Color;
 pub use error::RayTracerError;
 pub use intersection::Ray;
 pub use matrix::Matrix;
-pub use tuple::Tuple;
+pub use tuple::{Point, Vector};
 
 type Result<T> = std::result::Result<T, RayTracerError>;
 

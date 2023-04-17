@@ -42,15 +42,14 @@ fn main() {
         side.add_child(&mut edge);
     }
 
-    let light = Light::new(Tuple::point(0., 1., 1.), Color::white());
+    let light = Light::new(Point::new(0., 1., 1.), Color::white());
     let world = World::new(vec![hex], vec![light]);
 
-    let from = Tuple::point(0., 4., 5.);
-    let to = Tuple::point(0., 0., 0.);
-    let up = Tuple::vector(0., 1., 0.);
+    let from = Point::new(0., 4., 5.);
+    let to = Point::new(0., 0., 0.);
+    let up = Vector::new(0., 1., 0.);
 
-    let camera_transformation = compute_view_transformation(from, to, up)
-        .expect("Should be able to compute the camera transformation");
+    let camera_transformation = compute_view_transformation(from, to, up);
     let camera = Camera::new(500, 500, 0.5, camera_transformation);
 
     let canvas = camera

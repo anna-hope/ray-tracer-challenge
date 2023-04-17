@@ -1,4 +1,4 @@
-use crate::{canvas::Canvas, world::World, Matrix, Ray, Result, Tuple};
+use crate::{canvas::Canvas, world::World, Matrix, Point, Ray, Result};
 
 use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rayon::prelude::*;
@@ -51,8 +51,8 @@ impl Camera {
         // using the camera matrix, transform the canvas point and the origin,
         // and then compute the ray's direction vector
         // (the canvas is at z=-1)
-        let pixel = self.transformation.inverse()? * Tuple::point(world_x, world_y, -1.);
-        let origin = self.transformation.inverse()? * Tuple::point(0., 0., 0.);
+        let pixel = self.transformation.inverse()? * Point::new(world_x, world_y, -1.);
+        let origin = self.transformation.inverse()? * Point::new(0., 0., 0.);
         let direction = (pixel - origin).norm();
 
         Ok(Ray::new(origin, direction))
@@ -96,7 +96,7 @@ impl Camera {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{equal, transformation::compute_view_transformation, world::World, Color};
+    use crate::{equal, transformation::compute_view_transformation, world::World, Color, Vector};
     use std::f64::consts::PI;
 
     #[test]
@@ -126,16 +126,16 @@ mod tests {
     fn construct_ray_through_center_of_canvas() {
         let camera = Camera::new(201, 101, PI / 2., Matrix::identity());
         let ray = camera.ray_for_pixel(100, 50).unwrap();
-        assert_eq!(ray.origin, Tuple::point(0., 0., 0.));
-        assert_eq!(ray.direction, Tuple::vector(0., 0., -1.));
+        assert_eq!(ray.origin, Point::new(0., 0., 0.));
+        assert_eq!(ray.direction, Vector::new(0., 0., -1.));
     }
 
     #[test]
     fn construct_ray_through_corner_of_canvas() {
         let camera = Camera::new(201, 101, PI / 2., Matrix::identity());
         let ray = camera.ray_for_pixel(0, 0).unwrap();
-        assert_eq!(ray.origin, Tuple::point(0., 0., 0.));
-        assert_eq!(ray.direction, Tuple::vector(0.66519, 0.33259, -0.66851));
+        assert_eq!(ray.origin, Point::new(0., 0., 0.));
+        assert_eq!(ray.direction, Vector::new(0.66519, 0.33259, -0.66851));
     }
 
     #[test]
@@ -147,24 +147,19 @@ mod tests {
             Matrix::identity().translate(0., -2., 5.).rotate_y(PI / 4.),
         );
         let ray = camera.ray_for_pixel(100, 50).unwrap();
-        assert_eq!(ray.origin, Tuple::point(0., 2., -5.));
+        assert_eq!(ray.origin, Point::new(0., 2., -5.));
 
         let val = 2.0_f64.sqrt() / 2.;
-        assert_eq!(ray.direction, Tuple::vector(val, 0., -val));
+        assert_eq!(ray.direction, Vector::new(val, 0., -val));
     }
 
     #[test]
     fn rendering_world_with_camera() {
         let world = World::default();
-        let from = Tuple::point(0., 0., -5.);
-        let to = Tuple::point(0., 0., 0.);
-        let up = Tuple::vector(0., 1., 0.);
-        let camera = Camera::new(
-            11,
-            11,
-            PI / 2.,
-            compute_view_transformation(from, to, up).unwrap(),
-        );
+        let from = Point::new(0., 0., -5.);
+        let to = Point::new(0., 0., 0.);
+        let up = Vector::new(0., 1., 0.);
+        let camera = Camera::new(11, 11, PI / 2., compute_view_transformation(from, to, up));
         let image = camera.render(&world).unwrap();
         assert_eq!(image.pixel_at(5, 5), Color::new(0.38066, 0.47583, 0.2855));
     }

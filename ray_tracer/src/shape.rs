@@ -1354,7 +1354,10 @@ pub mod cone {
             let shape = Cone::default();
             let examples = [
                 (Point::new(0., 0., 0.), Vector::new(0., 0., 0.)),
-                (Point::new(1., 1., 1.), Vector::new(1., -2.0_f64.sqrt(), 1.)),
+                (
+                    Point::new(1., 1., 1.),
+                    Vector::new(1., -(2.0_f64.sqrt()), 1.),
+                ),
                 (Point::new(-1., -1., 0.), Vector::new(-1., 1., 0.)),
             ];
 
@@ -1412,7 +1415,7 @@ pub mod triangle {
 
             let point1_to_origin = ray.origin - self.point1;
             let u = f * point1_to_origin.dot(direction_cross_edge2);
-            if u < 0. || u > 1. {
+            if !(0. ..=1.).contains(&u) {
                 return vec![];
             }
 
@@ -1429,7 +1432,7 @@ pub mod triangle {
 
     impl Intersect for Triangle {
         fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
-            Ok(self.local_intersect(&ray))
+            Ok(self.local_intersect(ray))
         }
     }
 

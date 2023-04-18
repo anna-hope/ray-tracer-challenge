@@ -25,12 +25,14 @@ pub enum ShapeType {
     Cube,
     Cylinder,
     Cone,
+    Triangle,
     Group,
     TestShape,
 }
 
 pub trait Shape: Intersect + Send + Sync {
     /// Computes the normal vector at the world point.
+    /// Typically does not need to be implemented for concrete types.
     fn normal_at(&self, point: Point) -> Result<Vector> {
         let local_point = self.world_to_object(point)?;
         let local_normal = self.local_normal_at(local_point);
@@ -61,6 +63,8 @@ pub trait Shape: Intersect + Send + Sync {
 
     fn set_parent(&mut self, parent: DefaultKey);
 
+    /// Converts the given point from world space to object space.
+    /// Typically does not need to be implemented for concrete types.
     fn world_to_object(&self, point: Point) -> Result<Point> {
         let point = if let Some(parent_key) = self.parent() {
             let shapes = SHAPES.read();
@@ -73,6 +77,8 @@ pub trait Shape: Intersect + Send + Sync {
         Ok(self.transformation().inverse()? * point)
     }
 
+    /// Converts the given normal to world space.
+    /// Typically does not need to be implemented for concrete types.
     fn normal_to_world(&self, normal: Vector) -> Result<Vector> {
         let mut normal = self.transformation().inverse()?.transpose() * normal;
         normal = normal.norm();
@@ -86,6 +92,9 @@ pub trait Shape: Intersect + Send + Sync {
         Ok(normal)
     }
 
+    /// Adds the given shape to the shapes store, sets this group as its parent,
+    /// and links the shape as its child.
+    /// Should only be implemented for groups.
     fn add_child(&self, _child: &mut ShapeRef) {
         unimplemented!()
     }
@@ -1353,6 +1362,216 @@ pub mod cone {
                 let normal = shape.local_normal_at(point);
                 assert_eq!(expected_normal, normal);
             }
+        }
+    }
+}
+
+pub mod triangle {
+    use crate::EPSILON;
+
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct Triangle {
+        id: usize,
+        point1: Point,
+        point2: Point,
+        point3: Point,
+        edge1: Vector,
+        edge2: Vector,
+        normal: Vector,
+        material: Material,
+        parent: Option<DefaultKey>,
+    }
+
+    impl Triangle {
+        pub fn new(point1: Point, point2: Point, point3: Point, material: Material) -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(1);
+            let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+
+            let edge1 = point2 - point1;
+            let edge2 = point3 - point1;
+            let normal = edge2.cross(edge1).norm();
+            Self {
+                id,
+                point1,
+                point2,
+                point3,
+                edge1,
+                edge2,
+                normal,
+                material,
+                parent: None,
+            }
+        }
+
+        fn local_intersect(&self, ray: &Ray) -> Vec<Intersection> {
+            let direction_cross_edge2 = ray.direction.cross(self.edge2);
+            let determinant = self.edge1.dot(direction_cross_edge2);
+            if determinant.abs() < EPSILON {
+                return vec![];
+            }
+
+            let f = 1. / determinant;
+
+            let point1_to_origin = ray.origin - self.point1;
+            let u = f * point1_to_origin.dot(direction_cross_edge2);
+            if u < 0. || u > 1. {
+                return vec![];
+            }
+
+            let origin_cross_edge1 = point1_to_origin.cross(self.edge1);
+            let v = f * ray.direction.dot(origin_cross_edge1);
+            if v < 0. || (u + v) > 1. {
+                return vec![];
+            }
+
+            let t = f * self.edge2.dot(origin_cross_edge1);
+            vec![Intersection::new(t, Arc::new(self.clone()))]
+        }
+    }
+
+    impl Intersect for Triangle {
+        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            Ok(self.local_intersect(&ray))
+        }
+    }
+
+    impl Shape for Triangle {
+        fn id(&self) -> usize {
+            self.id
+        }
+
+        fn local_normal_at(&self, _local_point: Point) -> Vector {
+            self.normal
+        }
+
+        fn material(&self) -> Material {
+            self.material.clone()
+        }
+
+        fn set_material(&mut self, material: Material) {
+            self.material = material;
+        }
+
+        fn parent(&self) -> Option<DefaultKey> {
+            self.parent
+        }
+
+        fn set_parent(&mut self, parent: DefaultKey) {
+            self.parent = Some(parent);
+        }
+
+        fn shape_type(&self) -> ShapeType {
+            ShapeType::Triangle
+        }
+
+        fn transformation(&self) -> Matrix {
+            unimplemented!()
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn construct_triangle() {
+            let p1 = Point::new(0., 1., 0.);
+            let p2 = Point::new(-1., 0., 0.);
+            let p3 = Point::new(1., 0., 0.);
+
+            let triangle = Triangle::new(p1, p2, p3, Material::default());
+            assert_eq!(triangle.point1, p1);
+            assert_eq!(triangle.point2, p2);
+            assert_eq!(triangle.point3, p3);
+            assert_eq!(triangle.edge1, Vector::new(-1., -1., 0.));
+            assert_eq!(triangle.edge2, Vector::new(1., -1., 0.));
+            assert_eq!(triangle.normal, Vector::new(0., 0., -1.));
+        }
+
+        #[test]
+        fn find_normal_on_triangle() {
+            let triangle = Triangle::new(
+                Point::new(0., 1., 0.),
+                Point::new(-1., 0., 0.),
+                Point::new(1., 0., 0.),
+                Material::default(),
+            );
+            let n1 = triangle.local_normal_at(Point::new(0., 0.5, 0.));
+            let n2 = triangle.local_normal_at(Point::new(-0.5, 0.75, 0.));
+            let n3 = triangle.local_normal_at(Point::new(0.5, 0.25, 0.));
+            assert_eq!(n1, triangle.normal);
+            assert_eq!(n2, triangle.normal);
+            assert_eq!(n3, triangle.normal);
+        }
+
+        #[test]
+        fn intersect_ray_parallel_to_triangle() {
+            let triangle = Triangle::new(
+                Point::new(0., 1., 0.),
+                Point::new(-1., 0., 0.),
+                Point::new(1., 0., 0.),
+                Material::default(),
+            );
+            let ray = Ray::new(Point::new(0., -1., -2.), Vector::new(0., 1., 0.));
+            let xs = triangle.local_intersect(&ray);
+            assert!(xs.is_empty());
+        }
+
+        #[test]
+        fn ray_misses_p1_p3_edge() {
+            let triangle = Triangle::new(
+                Point::new(0., 1., 0.),
+                Point::new(-1., 0., 0.),
+                Point::new(1., 0., 0.),
+                Material::default(),
+            );
+            let ray = Ray::new(Point::new(1., 1., -2.), Vector::new(0., 0., 1.));
+            let xs = triangle.local_intersect(&ray);
+            assert!(xs.is_empty());
+        }
+
+        #[test]
+        fn ray_misses_p1_p2_edge() {
+            let triangle = Triangle::new(
+                Point::new(0., 1., 0.),
+                Point::new(-1., 0., 0.),
+                Point::new(1., 0., 0.),
+                Material::default(),
+            );
+
+            let ray = Ray::new(Point::new(-1., 1., -2.), Vector::new(0., 0., 1.));
+            let xs = triangle.local_intersect(&ray);
+            assert!(xs.is_empty());
+        }
+
+        #[test]
+        fn ray_misses_p2_p3_edge() {
+            let triangle = Triangle::new(
+                Point::new(0., 1., 0.),
+                Point::new(-1., 0., 0.),
+                Point::new(1., 0., 0.),
+                Material::default(),
+            );
+
+            let ray = Ray::new(Point::new(0., -1., -2.), Vector::new(0., 0., 1.));
+            let xs = triangle.local_intersect(&ray);
+            assert!(xs.is_empty());
+        }
+
+        #[test]
+        fn ray_strikes_triangle() {
+            let triangle = Triangle::new(
+                Point::new(0., 1., 0.),
+                Point::new(-1., 0., 0.),
+                Point::new(1., 0., 0.),
+                Material::default(),
+            );
+            let ray = Ray::new(Point::new(0., 0.5, -2.), Vector::new(0., 0., 1.));
+            let xs = triangle.local_intersect(&ray);
+            assert_eq!(xs.len(), 1);
+            assert_eq!(xs[0].t, 2.);
         }
     }
 }

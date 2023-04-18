@@ -1375,8 +1375,6 @@ pub mod triangle {
     pub struct Triangle {
         id: usize,
         point1: Point,
-        point2: Point,
-        point3: Point,
         edge1: Vector,
         edge2: Vector,
         normal: Vector,
@@ -1395,8 +1393,6 @@ pub mod triangle {
             Self {
                 id,
                 point1,
-                point2,
-                point3,
                 edge1,
                 edge2,
                 normal,
@@ -1483,8 +1479,6 @@ pub mod triangle {
 
             let triangle = Triangle::new(p1, p2, p3, Material::default());
             assert_eq!(triangle.point1, p1);
-            assert_eq!(triangle.point2, p2);
-            assert_eq!(triangle.point3, p3);
             assert_eq!(triangle.edge1, Vector::new(-1., -1., 0.));
             assert_eq!(triangle.edge2, Vector::new(1., -1., 0.));
             assert_eq!(triangle.normal, Vector::new(0., 0., -1.));

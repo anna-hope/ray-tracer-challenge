@@ -1403,7 +1403,9 @@ pub mod triangle {
     #[derive(Debug, Clone)]
     pub struct Triangle {
         id: usize,
-        point1: Point,
+        pub point1: Point,
+        pub point2: Point,
+        pub point3: Point,
         edge1: Vector,
         edge2: Vector,
         normal: Vector,
@@ -1422,6 +1424,8 @@ pub mod triangle {
             Self {
                 id,
                 point1,
+                point2,
+                point3,
                 edge1,
                 edge2,
                 normal,

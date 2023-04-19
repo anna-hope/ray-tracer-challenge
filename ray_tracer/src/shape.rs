@@ -100,9 +100,9 @@ pub trait Shape: Intersect + Send + Sync {
     fn as_any(&self) -> &dyn Any;
 
     /// Downcasts this shape to a Group, if it is actually a Group.
-    /// Returns None otherwise.
+    /// Returns None otherwise. Should not typically be implemented for concrete types.
     fn as_group(&self) -> Option<&Group> {
-        None
+        self.as_any().downcast_ref::<Group>()
     }
 }
 
@@ -1725,10 +1725,6 @@ pub mod group {
 
         fn as_any(&self) -> &dyn Any {
             self
-        }
-
-        fn as_group(&self) -> Option<&Group> {
-            self.as_any().downcast_ref::<Self>()
         }
     }
 

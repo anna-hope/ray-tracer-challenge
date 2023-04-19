@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["ray_tracer", "rt_run", "parse_scene"]
+members = ["ray_tracer", "rt_run", "parse_scene", "obj_file"]
 
 [profile.release]
 lto = true

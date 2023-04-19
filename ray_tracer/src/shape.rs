@@ -1739,6 +1739,14 @@ pub mod group {
         }
     }
 
+    impl PartialEq for Group {
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id
+        }
+    }
+
+    impl Eq for Group {}
+
     #[cfg(test)]
     mod tests {
         use crate::shape::sphere::Sphere;

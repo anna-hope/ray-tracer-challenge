@@ -449,7 +449,7 @@ fn parse_material(description: &Value) -> Material {
 fn construct_object(
     description: &Mapping,
     definitions: &[Definition],
-    parent: Option<Arc<dyn Shape>>,
+    parent: Option<&group::Group>,
 ) -> Result<Arc<dyn Shape>> {
     let object_type = description
         .get("add")
@@ -626,7 +626,7 @@ fn construct_object(
                         "Each value in a group's 'children' must be a mapping".to_string(),
                     ))
                 })
-                .map(|x| construct_object(x?, definitions, Some(Arc::clone(&group))))
+                .map(|x| construct_object(x?, definitions, group.as_group()))
                 .collect::<Result<Vec<Arc<dyn Shape>>>>()?;
 
             // if the child is a group, then it's already been added
@@ -635,6 +635,7 @@ fn construct_object(
             // and we'd crash
             for child in children.iter_mut() {
                 if child.parent().is_none() {
+                    let group = group.as_group().unwrap();
                     group.add_child(child);
                 }
             }
@@ -846,9 +847,37 @@ mod tests {
 
         let scene = parse_scene(input).unwrap();
         assert_eq!(scene.objects.len(), 1);
+
+        let group = scene.objects[0].as_group().unwrap();
         assert_eq!(
-            scene.objects[0].transformation(),
+            group.transformation(),
             Matrix::identity().translate(0., 1., 0.)
+        );
+
+        let sphere = group.get_child(0).unwrap();
+        assert_eq!(
+            sphere.material(),
+            Material {
+                color: Color::new(1., 0.2, 1.),
+                diffuse: 0.7,
+                specular: 0.3,
+                ..Default::default()
+            }
+        );
+        assert_eq!(sphere.transformation(), Matrix::scaling(1., 0.5, 1.));
+
+        let plane = group.get_child(1).unwrap();
+        assert_eq!(
+            plane.material(),
+            Material {
+                color: Color::new(1., 0.9, 0.9),
+                specular: 0.,
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            plane.transformation(),
+            Matrix::identity().rotate_x(1.5708).translate(0., 0., 5.)
         );
     }
 
@@ -894,6 +923,38 @@ mod tests {
         assert_eq!(
             scene.objects[0].transformation(),
             Matrix::identity().translate(0., 1., 0.)
+        );
+
+        let group = scene.objects[0].as_group().unwrap();
+
+        let child_group = group.get_child(0).unwrap();
+        let child_group = child_group.as_group().unwrap();
+        let sphere = child_group.get_child(0).unwrap();
+        assert_eq!(
+            sphere.material(),
+            Material {
+                color: Color::new(1., 0.2, 1.),
+                diffuse: 0.7,
+                specular: 0.3,
+                ..Default::default()
+            }
+        );
+
+        let cube = child_group.get_child(1).unwrap();
+        assert_eq!(cube.material(), Material::default());
+
+        let plane = group.get_child(1).unwrap();
+        assert_eq!(
+            plane.material(),
+            Material {
+                color: Color::new(1., 0.9, 0.9),
+                specular: 0.,
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            plane.transformation(),
+            Matrix::identity().rotate_x(1.5708).translate(0., 0., 5.)
         );
     }
 }

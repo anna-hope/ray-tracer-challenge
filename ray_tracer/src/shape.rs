@@ -13,6 +13,8 @@ use crate::{
     Matrix, Point, Result, Vector,
 };
 
+use self::group::Group;
+
 pub type ShapeRef = Arc<dyn Shape>;
 
 lazy_static! {
@@ -93,16 +95,15 @@ pub trait Shape: Intersect + Send + Sync {
         Ok(normal)
     }
 
-    /// Adds the given shape to the shapes store, sets this group as its parent,
-    /// and links the shape as its child.
-    /// Should only be implemented for groups.
-    fn add_child(&self, _child: &mut ShapeRef) {
-        unimplemented!()
-    }
-
     /// Upcast self to Any. This is needed primarily for testing,
     /// since in some cases we need to get back to original types.
     fn as_any(&self) -> &dyn Any;
+
+    /// Downcasts this shape to a Group, if it is actually a Group.
+    /// Returns None otherwise.
+    fn as_group(&self) -> Option<&Group> {
+        None
+    }
 }
 
 impl PartialEq for dyn Shape {
@@ -1651,6 +1652,28 @@ pub mod group {
             Ok(intersections)
         }
 
+        pub fn add_child(&self, child: &mut ShapeRef) {
+            {
+                let shapes = SHAPES.read();
+                let mut self_key: Option<DefaultKey> = None;
+                for (key, value) in shapes.iter() {
+                    if value.id() == self.id() && value.shape_type() == ShapeType::Group {
+                        self_key = Some(key);
+                        break;
+                    }
+                }
+
+                let self_key = self_key.expect("The group must be in SHAPES");
+                let child_shape =
+                    Arc::get_mut(child).expect("Must have a unique reference to the child");
+                child_shape.set_parent(self_key);
+            }
+
+            let child_key = register_shape(Arc::clone(child));
+            let mut children = self.children.write();
+            children.push(child_key);
+        }
+
         pub fn get_child(&self, index: usize) -> Option<Arc<dyn Shape>> {
             let children = self.children.read();
             let child_key = children.get(index)?;
@@ -1700,30 +1723,12 @@ pub mod group {
             self.parent = Some(parent);
         }
 
-        fn add_child(&self, child: &mut ShapeRef) {
-            {
-                let shapes = SHAPES.read();
-                let mut self_key: Option<DefaultKey> = None;
-                for (key, value) in shapes.iter() {
-                    if value.id() == self.id() && value.shape_type() == ShapeType::Group {
-                        self_key = Some(key);
-                        break;
-                    }
-                }
-
-                let self_key = self_key.expect("The group must be in SHAPES");
-                let child_shape =
-                    Arc::get_mut(child).expect("Must have a unique reference to the child");
-                child_shape.set_parent(self_key);
-            }
-
-            let child_key = register_shape(Arc::clone(child));
-            let mut children = self.children.write();
-            children.push(child_key);
-        }
-
         fn as_any(&self) -> &dyn Any {
             self
+        }
+
+        fn as_group(&self) -> Option<&Group> {
+            self.as_any().downcast_ref::<Self>()
         }
     }
 
@@ -1990,6 +1995,8 @@ mod tests {
         register_shape(group1_clone);
 
         group1.add_child(&mut group2);
+
+        let group2 = group2.as_group().unwrap();
         group2.add_child(&mut sphere);
 
         let point = sphere.world_to_object(Point::new(-2., 0., -10.)).unwrap();
@@ -2012,6 +2019,7 @@ mod tests {
 
         let mut sphere: ShapeRef =
             Arc::new(Sphere::default().with_transformation(Matrix::translation(5., 0., 0.)));
+        let group2 = group2.as_group().unwrap();
         group2.add_child(&mut sphere);
 
         let val = 3.0_f64.sqrt() / 3.;
@@ -2029,9 +2037,8 @@ mod tests {
             sleep(Duration::from_millis(100));
         }
 
-        let group1: ShapeRef =
-            Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
-        register_shape(Arc::clone(&group1));
+        let group1 = Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
+        register_shape(Arc::clone(&group1) as ShapeRef);
 
         let mut group2: ShapeRef =
             Arc::new(Group::default().with_transformation(Matrix::scaling(1., 2., 3.)));
@@ -2039,6 +2046,7 @@ mod tests {
 
         let mut sphere: ShapeRef =
             Arc::new(Sphere::default().with_transformation(Matrix::translation(5., 0., 0.)));
+        let group2 = group2.as_group().unwrap();
         group2.add_child(&mut sphere);
 
         let normal = sphere

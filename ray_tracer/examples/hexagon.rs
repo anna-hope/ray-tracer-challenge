@@ -6,8 +6,8 @@ use std::sync::Arc;
 use ray_tracer::prelude::*;
 
 fn main() {
-    let hex: Arc<dyn Shape> = Arc::new(group::Group::default());
-    let hex_clone = Arc::clone(&hex);
+    let hex = Arc::new(group::Group::default());
+    let hex_clone = Arc::clone(&hex) as Arc<dyn Shape>;
     register_shape(hex_clone);
 
     for n in 0..=5 {
@@ -38,6 +38,7 @@ fn main() {
             None,
         ));
 
+        let side = side.as_group().unwrap();
         side.add_child(&mut corner);
         side.add_child(&mut edge);
     }

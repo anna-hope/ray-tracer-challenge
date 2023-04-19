@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -98,6 +99,10 @@ pub trait Shape: Intersect + Send + Sync {
     fn add_child(&self, _child: &mut ShapeRef) {
         unimplemented!()
     }
+
+    /// Upcast self to Any. This is needed primarily for testing,
+    /// since in some cases we need to get back to original types.
+    fn as_any(&self) -> &dyn Any;
 }
 
 impl PartialEq for dyn Shape {
@@ -248,6 +253,10 @@ pub mod sphere {
 
         fn set_parent(&mut self, parent: DefaultKey) {
             self.parent = Some(parent);
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
         }
     }
 
@@ -526,6 +535,10 @@ pub mod plane {
         fn set_parent(&mut self, parent: DefaultKey) {
             self.parent = Some(parent);
         }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
     }
 
     #[cfg(test)]
@@ -716,6 +729,10 @@ pub mod cube {
 
         fn set_parent(&mut self, parent: DefaultKey) {
             self.parent = Some(parent);
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
         }
     }
 
@@ -944,6 +961,10 @@ pub mod cylinder {
 
         fn set_parent(&mut self, parent: DefaultKey) {
             self.parent = Some(parent);
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
         }
     }
 
@@ -1272,6 +1293,10 @@ pub mod cone {
         fn set_parent(&mut self, parent: DefaultKey) {
             self.parent = Some(parent);
         }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
     }
 
     impl Intersect for Cone {
@@ -1468,6 +1493,10 @@ pub mod triangle {
         fn transformation(&self) -> Matrix {
             unimplemented!()
         }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
     }
 
     #[cfg(test)]
@@ -1621,6 +1650,14 @@ pub mod group {
             intersections.sort_unstable_by(|a, b| a.t.total_cmp(&b.t));
             Ok(intersections)
         }
+
+        pub fn get_child(&self, index: usize) -> Option<Arc<dyn Shape>> {
+            let children = self.children.read();
+            let child_key = children.get(index)?;
+            let shapes = SHAPES.read();
+            let child = shapes.get(*child_key)?;
+            Some(Arc::clone(child))
+        }
     }
 
     impl Default for Group {
@@ -1684,6 +1721,10 @@ pub mod group {
             let mut children = self.children.write();
             children.push(child_key);
         }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
     }
 
     impl Intersect for Group {
@@ -1726,13 +1767,12 @@ pub mod group {
             let children = group.children.read();
             assert!(!children.is_empty());
 
-            let shapes = SHAPES.read();
-            let child_key = *children.first().unwrap();
-            let child = shapes.get(child_key).unwrap();
+            let child = group.get_child(0).unwrap();
 
             assert_eq!(shape.id(), child.id());
             assert_eq!(shape.shape_type(), child.shape_type());
 
+            let shapes = SHAPES.read();
             let parent_key = child.parent().unwrap();
             let parent = shapes.get(parent_key).unwrap();
             assert_eq!(parent.id(), group.id);
@@ -1874,6 +1914,10 @@ mod tests {
         fn set_parent(&mut self, parent: DefaultKey) {
             self.parent = Some(parent);
         }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
     }
 
     #[test]
@@ -2002,5 +2046,11 @@ mod tests {
             .unwrap();
         // cf. book values (0.2857, 0.4286, -0.8571)
         assert_eq!(normal, Vector::new(0.2857, 0.42854, -0.85716));
+    }
+
+    #[test]
+    fn get_back_original_type() {
+        let shape: Arc<dyn Shape> = Arc::new(TestShape::default());
+        let _concrete_shape = shape.as_any().downcast_ref::<TestShape>().unwrap();
     }
 }

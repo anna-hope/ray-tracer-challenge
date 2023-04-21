@@ -1518,7 +1518,7 @@ pub mod triangle {
         }
 
         fn transformation(&self) -> Matrix {
-            unimplemented!()
+            Matrix::identity()
         }
 
         fn as_any(&self) -> &dyn Any {

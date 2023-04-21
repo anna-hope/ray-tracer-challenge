@@ -3,6 +3,7 @@ use std::sync::Arc;
 use serde_yaml::{Mapping, Sequence, Value};
 use thiserror::Error;
 
+use obj_file::parse_obj_file;
 use ray_tracer::prelude::*;
 
 #[derive(Error, Debug)]
@@ -42,6 +43,12 @@ pub enum ParseError {
 
     #[error("Invalid parameters for group: {0}")]
     InvalidGroupParams(String),
+
+    #[error("Invalid parameters for obj: {0}")]
+    InvalidObjParams(String),
+
+    #[error("Error parsing obj file: {0}")]
+    CouldNotParseObj(#[from] obj_file::ParserError),
 }
 
 type Result<T> = std::result::Result<T, ParseError>;
@@ -640,6 +647,19 @@ fn construct_object(
 
             group
         }
+        "obj" => {
+            let filename = description
+                .get("file")
+                .ok_or(ParseError::InvalidObjParams(
+                    "Missing 'file' field".to_string(),
+                ))?
+                .as_str()
+                .ok_or(ParseError::InvalidValue(
+                    "obj 'file' must be a string".to_string(),
+                ))?;
+            let parsed_obj = parse_obj_file(filename)?;
+            parsed_obj.default_group as Arc<dyn Shape>
+        }
         _ => unimplemented!(),
     };
 
@@ -666,7 +686,7 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
                         let light = construct_light(mapping)?;
                         lights.push(light);
                     }
-                    "sphere" | "plane" | "cube" | "cylinder" | "cone" | "group" => {
+                    "sphere" | "plane" | "cube" | "cylinder" | "cone" | "group" | "obj" => {
                         let object = construct_object(mapping, &definitions, None)?;
                         objects.push(object);
                     }

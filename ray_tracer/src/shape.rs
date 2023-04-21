@@ -63,16 +63,21 @@ pub trait Shape: Intersect + Send + Sync {
     /// Needed primarily for testing.
     fn set_material(&mut self, material: Material);
 
-    fn parent(&self) -> Option<DefaultKey>;
+    fn parent_key(&self) -> Option<DefaultKey>;
+
+    fn parent(&self) -> Option<ShapeRef> {
+        let parent_key = self.parent_key()?;
+        let shapes = SHAPES.read();
+        let parent = shapes.get(parent_key)?;
+        Some(Arc::clone(parent))
+    }
 
     fn set_parent(&self, parent: DefaultKey);
 
     /// Converts the given point from world space to object space.
     /// Typically does not need to be implemented for concrete types.
     fn world_to_object(&self, point: Point) -> Result<Point> {
-        let point = if let Some(parent_key) = self.parent() {
-            let shapes = SHAPES.read();
-            let parent = Arc::clone(&shapes[parent_key]);
+        let point = if let Some(parent) = self.parent() {
             parent.world_to_object(point)?
         } else {
             point
@@ -87,9 +92,7 @@ pub trait Shape: Intersect + Send + Sync {
         let mut normal = self.transformation().inverse()?.transpose() * normal;
         normal = normal.norm();
 
-        if let Some(parent_key) = self.parent() {
-            let shapes = SHAPES.read();
-            let parent = Arc::clone(&shapes[parent_key]);
+        if let Some(parent) = self.parent() {
             normal = parent.normal_to_world(normal)?;
         }
 
@@ -266,7 +269,7 @@ pub mod sphere {
             self.material = material;
         }
 
-        fn parent(&self) -> Option<DefaultKey> {
+        fn parent_key(&self) -> Option<DefaultKey> {
             *self.parent.read()
         }
 
@@ -548,7 +551,7 @@ pub mod plane {
             self.material = material;
         }
 
-        fn parent(&self) -> Option<DefaultKey> {
+        fn parent_key(&self) -> Option<DefaultKey> {
             *self.parent.read()
         }
 
@@ -744,7 +747,7 @@ pub mod cube {
             self.material = material
         }
 
-        fn parent(&self) -> Option<DefaultKey> {
+        fn parent_key(&self) -> Option<DefaultKey> {
             *self.parent.read()
         }
 
@@ -977,7 +980,7 @@ pub mod cylinder {
             }
         }
 
-        fn parent(&self) -> Option<DefaultKey> {
+        fn parent_key(&self) -> Option<DefaultKey> {
             *self.parent.read()
         }
 
@@ -1309,7 +1312,7 @@ pub mod cone {
             self.transformation.clone()
         }
 
-        fn parent(&self) -> Option<DefaultKey> {
+        fn parent_key(&self) -> Option<DefaultKey> {
             *self.parent.read()
         }
 
@@ -1505,7 +1508,7 @@ pub mod triangle {
             self.material = material;
         }
 
-        fn parent(&self) -> Option<DefaultKey> {
+        fn parent_key(&self) -> Option<DefaultKey> {
             *self.parent.read()
         }
 
@@ -1747,7 +1750,7 @@ pub mod group {
             ShapeType::Group
         }
 
-        fn parent(&self) -> Option<DefaultKey> {
+        fn parent_key(&self) -> Option<DefaultKey> {
             *self.parent.read()
         }
 
@@ -1814,7 +1817,7 @@ pub mod group {
             assert_eq!(shape.shape_type(), child.shape_type());
 
             let shapes = SHAPES.read();
-            let parent_key = child.parent().unwrap();
+            let parent_key = child.parent_key().unwrap();
             let parent = shapes.get(parent_key).unwrap();
             assert_eq!(parent.id(), group.id);
         }
@@ -1949,7 +1952,7 @@ mod tests {
             Vector::new(local_point.x, local_point.y, local_point.z)
         }
 
-        fn parent(&self) -> Option<DefaultKey> {
+        fn parent_key(&self) -> Option<DefaultKey> {
             *self.parent.read()
         }
 
@@ -2012,7 +2015,7 @@ mod tests {
     #[test]
     fn shape_has_parent_field() {
         let shape = TestShape::default();
-        assert!(shape.parent().is_none());
+        assert!(shape.parent_key().is_none());
     }
 
     #[test]

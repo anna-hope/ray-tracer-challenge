@@ -631,8 +631,6 @@ fn construct_object(
 
             // if the child is a group, then it's already been added
             // in the next level of recursion
-            // so trying to add it again would violate the constraint on Arc being unique
-            // and we'd crash
             for child in children.iter() {
                 if child.parent().is_none() {
                     let group = group.as_group().unwrap();

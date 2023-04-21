@@ -16,6 +16,7 @@ use crate::{
 use self::group::Group;
 
 pub type ShapeRef = Arc<dyn Shape>;
+type MaybeKeyRef = Arc<RwLock<Option<DefaultKey>>>;
 
 lazy_static! {
     static ref SHAPES: RwLock<SlotMap<DefaultKey, ShapeRef>> = RwLock::new(SlotMap::new());
@@ -64,7 +65,7 @@ pub trait Shape: Intersect + Send + Sync {
 
     fn parent(&self) -> Option<DefaultKey>;
 
-    fn set_parent(&mut self, parent: DefaultKey);
+    fn set_parent(&self, parent: DefaultKey);
 
     /// Converts the given point from world space to object space.
     /// Typically does not need to be implemented for concrete types.
@@ -104,6 +105,21 @@ pub trait Shape: Intersect + Send + Sync {
     fn as_group(&self) -> Option<&Group> {
         self.as_any().downcast_ref::<Group>()
     }
+
+    /// Gets the key of this shape from the SHAPES store, if the shape is in it.
+    /// This is an O(n) operation, where n is the size of the SHAPES store,
+    /// since we need to iterate over all the shapes in the store
+    /// and compare them with this shape for equality.
+    /// Should not typically be implemented for concrete types.
+    fn key(&self) -> Option<DefaultKey> {
+        let shapes = SHAPES.read();
+        for (key, shape) in shapes.iter() {
+            if shape.id() == self.id() && shape.shape_type() == self.shape_type() {
+                return Some(key);
+            }
+        }
+        None
+    }
 }
 
 impl PartialEq for dyn Shape {
@@ -125,7 +141,7 @@ impl Debug for dyn Shape {
 /// This is typically needed to be called explicitly only for root shapes (`Group`),
 /// as child groups/shapes will be inserted into the SlotMap automatically
 /// when they are passed to `Group.add_child`.
-pub fn register_shape(shape: Arc<dyn Shape>) -> DefaultKey {
+pub fn register_shape(shape: ShapeRef) -> DefaultKey {
     let mut shapes = SHAPES.write();
     shapes.insert(shape)
 }
@@ -139,7 +155,7 @@ pub mod sphere {
         id: usize,
         transformation: Matrix,
         material: Material,
-        parent: Option<DefaultKey>,
+        parent: MaybeKeyRef,
     }
 
     impl Sphere {
@@ -147,6 +163,8 @@ pub mod sphere {
         pub fn new(transformation: Matrix, material: Material, parent: Option<DefaultKey>) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+
+            let parent = Arc::new(RwLock::new(parent));
             Self {
                 id,
                 transformation,
@@ -249,11 +267,11 @@ pub mod sphere {
         }
 
         fn parent(&self) -> Option<DefaultKey> {
-            self.parent
+            *self.parent.read()
         }
 
-        fn set_parent(&mut self, parent: DefaultKey) {
-            self.parent = Some(parent);
+        fn set_parent(&self, parent: DefaultKey) {
+            *self.parent.write() = Some(parent);
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -453,13 +471,14 @@ pub mod plane {
         id: usize,
         transformation: Matrix,
         material: Material,
-        parent: Option<DefaultKey>,
+        parent: MaybeKeyRef,
     }
 
     impl Plane {
         pub fn new(transformation: Matrix, material: Material, parent: Option<DefaultKey>) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+            let parent = Arc::new(RwLock::new(parent));
             Self {
                 id,
                 transformation,
@@ -530,11 +549,11 @@ pub mod plane {
         }
 
         fn parent(&self) -> Option<DefaultKey> {
-            self.parent
+            *self.parent.read()
         }
 
-        fn set_parent(&mut self, parent: DefaultKey) {
-            self.parent = Some(parent);
+        fn set_parent(&self, parent: DefaultKey) {
+            *self.parent.write() = Some(parent);
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -607,13 +626,14 @@ pub mod cube {
         id: usize,
         transformation: Matrix,
         material: Material,
-        parent: Option<DefaultKey>,
+        parent: MaybeKeyRef,
     }
 
     impl Cube {
         pub fn new(transformation: Matrix, material: Material, parent: Option<DefaultKey>) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+            let parent = Arc::new(RwLock::new(parent));
             Self {
                 id,
                 transformation,
@@ -725,11 +745,11 @@ pub mod cube {
         }
 
         fn parent(&self) -> Option<DefaultKey> {
-            self.parent
+            *self.parent.read()
         }
 
-        fn set_parent(&mut self, parent: DefaultKey) {
-            self.parent = Some(parent);
+        fn set_parent(&self, parent: DefaultKey) {
+            *self.parent.write() = Some(parent);
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -826,7 +846,7 @@ pub mod cylinder {
         minimum: f64,
         maximum: f64,
         closed: bool,
-        parent: Option<DefaultKey>,
+        parent: MaybeKeyRef,
     }
 
     impl Cylinder {
@@ -840,6 +860,7 @@ pub mod cylinder {
         ) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+            let parent = Arc::new(RwLock::new(parent));
             Self {
                 id,
                 transformation,
@@ -957,11 +978,11 @@ pub mod cylinder {
         }
 
         fn parent(&self) -> Option<DefaultKey> {
-            self.parent
+            *self.parent.read()
         }
 
-        fn set_parent(&mut self, parent: DefaultKey) {
-            self.parent = Some(parent);
+        fn set_parent(&self, parent: DefaultKey) {
+            *self.parent.write() = Some(parent);
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -1142,7 +1163,7 @@ pub mod cone {
         minimum: f64,
         maximum: f64,
         closed: bool,
-        parent: Option<DefaultKey>,
+        parent: MaybeKeyRef,
     }
 
     impl Cone {
@@ -1156,6 +1177,7 @@ pub mod cone {
         ) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+            let parent = Arc::new(RwLock::new(parent));
             Self {
                 id,
                 transformation,
@@ -1288,11 +1310,11 @@ pub mod cone {
         }
 
         fn parent(&self) -> Option<DefaultKey> {
-            self.parent
+            *self.parent.read()
         }
 
-        fn set_parent(&mut self, parent: DefaultKey) {
-            self.parent = Some(parent);
+        fn set_parent(&self, parent: DefaultKey) {
+            *self.parent.write() = Some(parent);
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -1410,7 +1432,7 @@ pub mod triangle {
         edge2: Vector,
         normal: Vector,
         material: Material,
-        parent: Option<DefaultKey>,
+        parent: MaybeKeyRef,
     }
 
     impl Triangle {
@@ -1430,7 +1452,7 @@ pub mod triangle {
                 edge2,
                 normal,
                 material,
-                parent: None,
+                parent: Arc::new(RwLock::new(None)),
             }
         }
 
@@ -1484,11 +1506,11 @@ pub mod triangle {
         }
 
         fn parent(&self) -> Option<DefaultKey> {
-            self.parent
+            *self.parent.read()
         }
 
-        fn set_parent(&mut self, parent: DefaultKey) {
-            self.parent = Some(parent);
+        fn set_parent(&self, parent: DefaultKey) {
+            *self.parent.write() = Some(parent);
         }
 
         fn shape_type(&self) -> ShapeType {
@@ -1617,7 +1639,7 @@ pub mod group {
         id: usize,
         transformation: Matrix,
         children: GroupChildren,
-        parent: Option<DefaultKey>,
+        parent: MaybeKeyRef,
     }
 
     impl Group {
@@ -1628,6 +1650,8 @@ pub mod group {
         ) -> Self {
             static COUNTER: AtomicUsize = AtomicUsize::new(1);
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+
+            let parent = Arc::new(RwLock::new(parent));
 
             Self {
                 id,
@@ -1656,34 +1680,38 @@ pub mod group {
             Ok(intersections)
         }
 
-        pub fn add_child(&self, child: &mut ShapeRef) {
-            {
-                let shapes = SHAPES.read();
-                let mut self_key: Option<DefaultKey> = None;
-                for (key, value) in shapes.iter() {
-                    if value.id() == self.id() && value.shape_type() == ShapeType::Group {
-                        self_key = Some(key);
-                        break;
-                    }
-                }
-
-                let self_key = self_key.expect("The group must be in SHAPES");
-                let child_shape =
-                    Arc::get_mut(child).expect("Must have a unique reference to the child");
-                child_shape.set_parent(self_key);
-            }
+        /// Sets the parent of the child to the key of `self`, registers the child in `SHAPES`,
+        /// and adds the key from `SHAPES` to `self`'s children.
+        /// `self` must already be registered in `SHAPES` (either directly via `register_shape` or indirectly
+        /// by being added as a child of another group).
+        /// Panics if `self` is not in `SHAPES`.
+        /// This is an O(n) operation because this uses `Shape.key()` underlyingly
+        /// (see that method's documentation for an explanation of the time complexity).
+        pub fn add_child(&self, child: &ShapeRef) {
+            let self_key = self.key().expect("The group must be in shapes");
+            child.set_parent(self_key);
 
             let child_key = register_shape(Arc::clone(child));
             let mut children = self.children.write();
             children.push(child_key);
         }
 
-        pub fn get_child(&self, index: usize) -> Option<Arc<dyn Shape>> {
+        pub fn get_child(&self, index: usize) -> Option<ShapeRef> {
             let children = self.children.read();
             let child_key = children.get(index)?;
             let shapes = SHAPES.read();
             let child = shapes.get(*child_key)?;
             Some(Arc::clone(child))
+        }
+
+        pub fn children(&self) -> Vec<ShapeRef> {
+            let mut children_shapes = vec![];
+            let children = self.children.read();
+            for child_index in 0..children.len() {
+                let child = self.get_child(child_index).unwrap();
+                children_shapes.push(child);
+            }
+            children_shapes
         }
     }
 
@@ -1720,11 +1748,11 @@ pub mod group {
         }
 
         fn parent(&self) -> Option<DefaultKey> {
-            self.parent
+            *self.parent.read()
         }
 
-        fn set_parent(&mut self, parent: DefaultKey) {
-            self.parent = Some(parent);
+        fn set_parent(&self, parent: DefaultKey) {
+            *self.parent.write() = Some(parent);
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -1774,8 +1802,8 @@ pub mod group {
             let group_clone: ShapeRef = group.clone() as ShapeRef;
             register_shape(group_clone);
 
-            let mut shape: ShapeRef = Arc::new(shape);
-            group.add_child(&mut shape);
+            let shape: ShapeRef = Arc::new(shape);
+            group.add_child(&shape);
 
             let children = group.children.read();
             assert!(!children.is_empty());
@@ -1809,13 +1837,13 @@ pub mod group {
             let group_clone: ShapeRef = Arc::clone(&group) as ShapeRef;
             register_shape(group_clone);
 
-            let mut s1: ShapeRef = Arc::new(s1);
-            let mut s2: ShapeRef = Arc::new(s2);
-            let mut s3: ShapeRef = Arc::new(s3);
+            let s1: ShapeRef = Arc::new(s1);
+            let s2: ShapeRef = Arc::new(s2);
+            let s3: ShapeRef = Arc::new(s3);
 
-            group.add_child(&mut s1);
-            group.add_child(&mut s2);
-            group.add_child(&mut s3);
+            group.add_child(&s1);
+            group.add_child(&s2);
+            group.add_child(&s3);
 
             let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
             let xs = group.local_intersect(&ray).unwrap();
@@ -1835,8 +1863,8 @@ pub mod group {
             let group_clone = Arc::clone(&group) as ShapeRef;
             register_shape(group_clone);
 
-            let mut shape: ShapeRef = Arc::new(shape);
-            group.add_child(&mut shape);
+            let shape: ShapeRef = Arc::new(shape);
+            group.add_child(&shape);
 
             let ray = Ray::new(Point::new(10., 0., -10.), Vector::new(0., 0., 1.));
             let xs = group.intersect(&ray).unwrap();
@@ -1860,11 +1888,12 @@ mod tests {
     pub struct TestShape {
         transformation: Matrix,
         material: Material,
-        parent: Option<DefaultKey>,
+        parent: MaybeKeyRef,
     }
 
     impl TestShape {
         pub fn new(transformation: Matrix, material: Material, parent: Option<DefaultKey>) -> Self {
+            let parent = Arc::new(RwLock::new(parent));
             Self {
                 transformation,
                 material,
@@ -1921,11 +1950,11 @@ mod tests {
         }
 
         fn parent(&self) -> Option<DefaultKey> {
-            self.parent
+            *self.parent.read()
         }
 
-        fn set_parent(&mut self, parent: DefaultKey) {
-            self.parent = Some(parent);
+        fn set_parent(&self, parent: DefaultKey) {
+            *self.parent.write() = Some(parent);
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -1983,7 +2012,7 @@ mod tests {
     #[test]
     fn shape_has_parent_field() {
         let shape = TestShape::default();
-        assert!(shape.parent.is_none());
+        assert!(shape.parent().is_none());
     }
 
     #[test]
@@ -1992,20 +2021,20 @@ mod tests {
             sleep(Duration::from_millis(100));
         }
 
-        let mut sphere: ShapeRef =
+        let sphere: ShapeRef =
             Arc::new(Sphere::default().with_transformation(Matrix::translation(5., 0., 0.)));
 
         let group1 = Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
-        let mut group2: ShapeRef =
+        let group2: ShapeRef =
             Arc::new(Group::default().with_transformation(Matrix::scaling(2., 2., 2.)));
 
         let group1_clone: ShapeRef = Arc::clone(&group1) as ShapeRef;
         register_shape(group1_clone);
 
-        group1.add_child(&mut group2);
+        group1.add_child(&group2);
 
         let group2 = group2.as_group().unwrap();
-        group2.add_child(&mut sphere);
+        group2.add_child(&sphere);
 
         let point = sphere.world_to_object(Point::new(-2., 0., -10.)).unwrap();
         assert_eq!(point, Point::new(0., 0., -1.));
@@ -2021,14 +2050,14 @@ mod tests {
         let group1_clone = Arc::clone(&group1) as ShapeRef;
         register_shape(group1_clone);
 
-        let mut group2: ShapeRef =
+        let group2: ShapeRef =
             Arc::new(Group::default().with_transformation(Matrix::scaling(1., 2., 3.)));
-        group1.add_child(&mut group2);
+        group1.add_child(&group2);
 
-        let mut sphere: ShapeRef =
+        let sphere: ShapeRef =
             Arc::new(Sphere::default().with_transformation(Matrix::translation(5., 0., 0.)));
         let group2 = group2.as_group().unwrap();
-        group2.add_child(&mut sphere);
+        group2.add_child(&sphere);
 
         let val = 3.0_f64.sqrt() / 3.;
         let normal = sphere.normal_to_world(Vector::new(val, val, val)).unwrap();
@@ -2048,14 +2077,14 @@ mod tests {
         let group1 = Arc::new(Group::default().with_transformation(Matrix::rotation_y(PI / 2.)));
         register_shape(Arc::clone(&group1) as ShapeRef);
 
-        let mut group2: ShapeRef =
+        let group2: ShapeRef =
             Arc::new(Group::default().with_transformation(Matrix::scaling(1., 2., 3.)));
-        group1.add_child(&mut group2);
+        group1.add_child(&group2);
 
-        let mut sphere: ShapeRef =
+        let sphere: ShapeRef =
             Arc::new(Sphere::default().with_transformation(Matrix::translation(5., 0., 0.)));
         let group2 = group2.as_group().unwrap();
-        group2.add_child(&mut sphere);
+        group2.add_child(&sphere);
 
         let normal = sphere
             .normal_at(Point::new(1.7321, 1.1547, -5.5774))

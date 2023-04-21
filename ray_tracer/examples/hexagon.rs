@@ -12,12 +12,12 @@ fn main() {
 
     for n in 0..=5 {
         let n = n as f64;
-        let mut side: Arc<dyn Shape> = Arc::new(
+        let side: Arc<dyn Shape> = Arc::new(
             group::Group::default().with_transformation(Matrix::rotation_y(n * (PI / 3.))),
         );
-        hex.add_child(&mut side);
+        hex.add_child(&side);
 
-        let mut corner: Arc<dyn Shape> = Arc::new(
+        let corner: Arc<dyn Shape> = Arc::new(
             sphere::Sphere::default().with_transformation(
                 Matrix::identity()
                     .scale(0.25, 0.25, 0.25)
@@ -25,7 +25,7 @@ fn main() {
             ),
         );
 
-        let mut edge: Arc<dyn Shape> = Arc::new(cylinder::Cylinder::new(
+        let edge: Arc<dyn Shape> = Arc::new(cylinder::Cylinder::new(
             Matrix::identity()
                 .scale(0.25, 1., 0.25)
                 .rotate_z(-PI / 2.)
@@ -39,8 +39,8 @@ fn main() {
         ));
 
         let side = side.as_group().unwrap();
-        side.add_child(&mut corner);
-        side.add_child(&mut edge);
+        side.add_child(&corner);
+        side.add_child(&edge);
     }
 
     let light = Light::new(Point::new(0., 1., 1.), Color::white());

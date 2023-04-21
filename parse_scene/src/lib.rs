@@ -591,7 +591,7 @@ fn construct_object(
             ))
         }
         "group" => {
-            let mut group: Arc<dyn Shape> =
+            let group: Arc<dyn Shape> =
                 Arc::new(group::Group::default().with_transformation(transformation));
 
             // if we have a parent given to this function
@@ -602,7 +602,7 @@ fn construct_object(
             // We must also have a unique reference to the group when we add it as a child
             // so we have to add this group to its parent at the level where it's defined.
             if let Some(parent) = parent {
-                parent.add_child(&mut group);
+                parent.add_child(&group);
             } else {
                 // if we don't have a parent, then this is the root group
                 // we need to just add it to the shapes store directly --
@@ -611,7 +611,7 @@ fn construct_object(
                 register_shape(group_clone);
             }
 
-            let mut children = description
+            let children = description
                 .get("children")
                 .ok_or(ParseError::InvalidGroupParams(
                     "Missing 'children' in group definition".to_string(),
@@ -633,7 +633,7 @@ fn construct_object(
             // in the next level of recursion
             // so trying to add it again would violate the constraint on Arc being unique
             // and we'd crash
-            for child in children.iter_mut() {
+            for child in children.iter() {
                 if child.parent().is_none() {
                     let group = group.as_group().unwrap();
                     group.add_child(child);

@@ -657,7 +657,7 @@ fn construct_object(
                 .ok_or(ParseError::InvalidValue(
                     "obj 'file' must be a string".to_string(),
                 ))?;
-            let parsed_obj = parse_obj_file(filename)?;
+            let parsed_obj = parse_obj_file(filename, Some(material))?;
             parsed_obj.default_group as Arc<dyn Shape>
         }
         _ => unimplemented!(),

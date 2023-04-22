@@ -1501,7 +1501,17 @@ pub mod triangle {
         }
 
         fn material(&self) -> Material {
-            self.material.clone()
+            if let Some(parent) = self.parent() {
+                // we know parent has to be a Group, so ok to unwrap here
+                let group = parent.as_group().unwrap();
+                if let Some(ref material) = group.material {
+                    material.clone()
+                } else {
+                    self.material.clone()
+                }
+            } else {
+                self.material.clone()
+            }
         }
 
         fn set_material(&mut self, material: Material) {
@@ -1643,6 +1653,7 @@ pub mod group {
         transformation: Matrix,
         children: GroupChildren,
         parent: MaybeKeyRef,
+        pub material: Option<Material>,
     }
 
     impl Group {
@@ -1655,17 +1666,24 @@ pub mod group {
             let id = COUNTER.fetch_add(1, Ordering::Relaxed);
 
             let parent = Arc::new(RwLock::new(parent));
+            let material = Some(Material::default());
 
             Self {
                 id,
                 transformation,
                 children,
                 parent,
+                material,
             }
         }
 
         pub fn with_transformation(mut self, transformation: Matrix) -> Self {
             self.transformation = transformation;
+            self
+        }
+
+        pub fn with_material(mut self, material: Material) -> Self {
+            self.material = Some(material);
             self
         }
 

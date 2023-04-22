@@ -32,3 +32,6 @@
 # the teapot object
 - add: obj
   file: obj/teapot.obj
+  material:
+    color: [0.6588235294, 0.662745098, 0.6784313725]
+    reflective: 0.7

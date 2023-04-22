@@ -52,13 +52,14 @@ fn apply_fan_triangulation(vertices: &[Point]) -> Vec<Triangle> {
     triangles
 }
 
-fn parse_obj_string(value: impl Into<String>) -> Result<ParsedObj> {
+fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Result<ParsedObj> {
     let string: String = value.into();
 
     let mut ignored_lines = 0;
     let mut vertices = vec![];
 
-    let default_group = Arc::new(Group::default());
+    let default_group =
+        Arc::new(Group::default().with_material(material.clone().unwrap_or_default()));
     let default_group_clone = Arc::clone(&default_group) as Arc<dyn Shape>;
     register_shape(default_group_clone);
 
@@ -144,8 +145,9 @@ fn parse_obj_string(value: impl Into<String>) -> Result<ParsedObj> {
                     )))?
                     .to_string();
 
-                let mut group: Arc<dyn Shape> = Arc::new(Group::default());
-                default_group.add_child(&mut group);
+                let group: Arc<dyn Shape> =
+                    Arc::new(Group::default().with_material(material.clone().unwrap_or_default()));
+                default_group.add_child(&group);
                 groups.insert(group_name, Arc::clone(&group));
                 current_group = Some(group);
             }
@@ -164,12 +166,12 @@ fn parse_obj_string(value: impl Into<String>) -> Result<ParsedObj> {
     })
 }
 
-pub fn parse_obj_file(filename: &str) -> Result<ParsedObj> {
+pub fn parse_obj_file(filename: &str, material: Option<Material>) -> Result<ParsedObj> {
     let mut file = File::open(filename)?;
     let mut buffer = String::new();
     file.read_to_string(&mut buffer)?;
 
-    parse_obj_string(buffer)
+    parse_obj_string(buffer, material)
 }
 
 #[cfg(test)]
@@ -184,7 +186,7 @@ mod tests {
         In a relative way,
         And came back the previous night."#;
 
-        let parsed = parse_obj_string(gibberish).unwrap();
+        let parsed = parse_obj_string(gibberish, None).unwrap();
         assert_eq!(parsed.ignored_lines, 5);
     }
 
@@ -203,7 +205,7 @@ v 1 0 0
 v 1 1 0
         "#;
 
-        let parsed = parse_obj_string(obj_string).unwrap();
+        let parsed = parse_obj_string(obj_string, None).unwrap();
         assert_eq!(parsed.vertices[0], Point::new(-1., 1., 0.));
         assert_eq!(parsed.vertices[1], Point::new(-1., 0.5, 0.));
         assert_eq!(parsed.vertices[2], Point::new(1., 0., 0.));
@@ -222,7 +224,7 @@ f 1 2 3
 f 1 3 4
             "#;
 
-        let parsed = parse_obj_string(obj_string).unwrap();
+        let parsed = parse_obj_string(obj_string, None).unwrap();
         let group = parsed.default_group;
         let child1 = group.get_child(0).unwrap();
         let triangle1 = child1.as_any().downcast_ref::<Triangle>().unwrap();
@@ -252,7 +254,7 @@ v 0 2 0
 f 1 2 3 4 5
         "#;
 
-        let parsed = parse_obj_string(obj_string).unwrap();
+        let parsed = parse_obj_string(obj_string, None).unwrap();
         let group = parsed.default_group;
 
         let child1 = group.get_child(0).unwrap();
@@ -280,7 +282,7 @@ f 1 2 3 4 5
     #[test]
     fn triangles_in_groups() {
         let filename = "triangles.obj";
-        let parsed = parse_obj_file(filename).unwrap();
+        let parsed = parse_obj_file(filename, None).unwrap();
         let group1 = parsed.get_group("FirstGroup").unwrap();
         let group2 = parsed.get_group("SecondGroup").unwrap();
 
@@ -302,7 +304,7 @@ f 1 2 3 4 5
     #[test]
     fn convert_obj_file_to_group() {
         let filename = "triangles.obj";
-        let parsed = parse_obj_file(filename).unwrap();
+        let parsed = parse_obj_file(filename, None).unwrap();
         let group = Arc::clone(&parsed.default_group);
 
         let child1 = group.get_child(0).unwrap();

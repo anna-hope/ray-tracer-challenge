@@ -1782,6 +1782,8 @@ pub mod smooth_triangle {
 
     #[cfg(test)]
     mod tests {
+        use crate::equal;
+
         use super::*;
 
         #[test]
@@ -1803,6 +1805,47 @@ pub mod smooth_triangle {
             assert_eq!(triangle.normal1, normal1);
             assert_eq!(triangle.normal2, normal2);
             assert_eq!(triangle.normal3, normal3);
+        }
+
+        #[test]
+        fn intersection_with_smooth_triangle_stores_u_and_v() {
+            let point1 = Point::new(0., 1., 0.);
+            let point2 = Point::new(-1., 0., 0.);
+            let point3 = Point::new(1., 0., 0.);
+            let normal1 = Vector::new(0., 1., 0.);
+            let normal2 = Vector::new(-1., 0., 0.);
+            let normal3 = Vector::new(1.0, 0., 0.);
+            let material = Material::default();
+
+            let triangle =
+                SmoothTriangle::new(point1, point2, point3, normal1, normal2, normal3, material);
+
+            let ray = Ray::new(Point::new(-0.2, 0.3, -2.), Vector::new(0., 0., 1.));
+            let xs = triangle.local_intersect(&ray);
+            assert!(equal(xs[0].u.unwrap(), 0.45));
+            assert!(equal(xs[0].v.unwrap(), 0.25));
+        }
+
+        #[test]
+        fn smooth_triangle_uses_u_v_to_interpolate_normal() {
+            let point1 = Point::new(0., 1., 0.);
+            let point2 = Point::new(-1., 0., 0.);
+            let point3 = Point::new(1., 0., 0.);
+            let normal1 = Vector::new(0., 1., 0.);
+            let normal2 = Vector::new(-1., 0., 0.);
+            let normal3 = Vector::new(1.0, 0., 0.);
+            let material = Material::default();
+
+            let triangle =
+                SmoothTriangle::new(point1, point2, point3, normal1, normal2, normal3, material);
+            let triangle = Arc::new(triangle) as Arc<dyn Shape>;
+
+            let intersection = Intersection::new_with_uv(1., Arc::clone(&triangle), 0.45, 0.25);
+            let normal = triangle
+                .normal_at(Point::new(0., 0., 0.), Some(intersection))
+                .unwrap();
+
+            assert_eq!(normal, Vector::new(-0.5547, 0.83205, 0.));
         }
 
         #[test]

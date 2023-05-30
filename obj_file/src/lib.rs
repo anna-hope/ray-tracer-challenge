@@ -6,7 +6,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use ray_tracer::prelude::*;
-use ray_tracer::shape::{group::Group, triangle::Triangle};
+use ray_tracer::shape::{group::Group, smooth_triangle::SmoothTriangle, triangle::Triangle};
 
 #[derive(Debug, Error)]
 pub enum ParserError {
@@ -27,6 +27,7 @@ pub struct ParsedObj {
     pub ignored_lines: u32,
     pub default_group: Arc<Group>,
     pub vertices: Vec<Point>,
+    pub normals: Vec<Vector>,
     groups: HashMap<String, Arc<dyn Shape>>,
 }
 
@@ -36,27 +37,12 @@ impl ParsedObj {
     }
 }
 
-fn apply_fan_triangulation(vertices: &[Point]) -> Vec<Triangle> {
-    let mut triangles = vec![];
-
-    for index in 1..vertices.len() - 1 {
-        let triangle = Triangle::new(
-            vertices[0],
-            vertices[index],
-            vertices[index + 1],
-            Material::default(),
-        );
-        triangles.push(triangle);
-    }
-
-    triangles
-}
-
 fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Result<ParsedObj> {
     let string: String = value.into();
 
     let mut ignored_lines = 0;
     let mut vertices = vec![];
+    let mut normals = vec![];
 
     let default_group =
         Arc::new(Group::default().with_material(material.clone().unwrap_or_default()));
@@ -75,7 +61,7 @@ fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Res
         let line_no = n + 1;
 
         match tokens[0] {
-            "v" => {
+            "v" | "vn" => {
                 if let (Some(x), Some(y), Some(z)) = (tokens.get(1), tokens.get(2), tokens.get(3)) {
                     let x = x.parse::<f64>().map_err(|_| {
                         ParserError::InvalidInput(format!(
@@ -93,13 +79,20 @@ fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Res
                         ))
                     })?;
 
-                    vertices.push(Point::new(x, y, z));
+                    if tokens[0] == "v" {
+                        vertices.push(Point::new(x, y, z));
+                    } else {
+                        // vn
+                        normals.push(Vector::new(x, y, z));
+                    }
                 } else {
                     println!("Malformed vertex record on line {line_no}");
                 }
             }
             "f" => {
                 let mut face_vertices = vec![];
+                let mut normal_indices = vec![];
+
                 for token in &tokens[1..] {
                     let subtokens = token.split('/').collect::<Vec<_>>();
 
@@ -118,12 +111,44 @@ fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Res
                         .get(vertex_index)
                         .ok_or(ParserError::MissingVertex(vertex_index + 1))?;
                     face_vertices.push(*vertex);
+
+                    if let Some(normal_index) = subtokens.get(2) {
+                        let normal_index = normal_index.parse::<usize>().map_err(|_| {
+                            ParserError::InvalidInput(format!(
+                                "Invalid normal index for face record on line {n}: {normal_index}"
+                            ))
+                        })?;
+                        normal_indices.push(normal_index - 1);
+                    }
                 }
 
-                let triangles = apply_fan_triangulation(&face_vertices)
-                    .iter()
-                    .map(|x| Arc::new(x.to_owned()) as Arc<dyn Shape>)
-                    .collect::<Vec<_>>();
+                let mut triangles = vec![];
+                for index in 1..face_vertices.len() - 1 {
+                    let point1 = face_vertices[0];
+                    let point2 = face_vertices[index];
+                    let point3 = face_vertices[index + 1];
+
+                    let triangle = if normal_indices.is_empty() {
+                        let triangle = Triangle::new(point1, point2, point3, Material::default());
+                        Arc::new(triangle) as Arc<dyn Shape>
+                    } else {
+                        let normal1 = normals[normal_indices[0]];
+                        let normal2 = normals[normal_indices[1]];
+                        let normal3 = normals[normal_indices[2]];
+                        let triangle = SmoothTriangle::new(
+                            point1,
+                            point2,
+                            point3,
+                            normal1,
+                            normal2,
+                            normal3,
+                            Material::default(),
+                        );
+                        Arc::new(triangle) as Arc<dyn Shape>
+                    };
+
+                    triangles.push(triangle);
+                }
 
                 if let Some(ref group) = current_group {
                     let group = group.as_group().unwrap();
@@ -151,7 +176,6 @@ fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Res
                 groups.insert(group_name, Arc::clone(&group));
                 current_group = Some(group);
             }
-            // "vn" => todo!(),
             _ => {
                 ignored_lines += 1;
             }
@@ -161,6 +185,7 @@ fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Res
     Ok(ParsedObj {
         ignored_lines,
         vertices,
+        normals,
         default_group,
         groups,
     })
@@ -318,5 +343,65 @@ f 1 2 3 4 5
 
         assert_eq!(child_group1, first_group);
         assert_eq!(child_group2, second_group);
+    }
+
+    #[test]
+    fn vertex_normal_records() {
+        let obj_string = r#"
+vn 0 0 1
+vn 0.707 0 -0.707
+vn 1 2 3
+"#;
+        let parsed = parse_obj_string(obj_string, None).unwrap();
+        assert_eq!(parsed.normals[0], Vector::new(0., 0., 1.));
+        assert_eq!(parsed.normals[1], Vector::new(0.707, 0., -0.707));
+        assert_eq!(parsed.normals[2], Vector::new(1., 2., 3.));
+    }
+
+    #[test]
+    fn faces_with_normals() {
+        let obj_string = r#"
+v 0 1 0
+v -1 0 0
+v 1 0 0
+
+vn -1 0 0
+vn 1 0 0
+vn 0 1 0
+
+f 1//3 2//1 3//2
+f 1/0/3 2/102/1 3/14/2
+"#;
+
+        let parsed = parse_obj_string(obj_string, None).unwrap();
+        let group = parsed.default_group;
+
+        let group1_child1 = group.get_child(0).unwrap();
+        let triangle1 = group1_child1
+            .as_any()
+            .downcast_ref::<SmoothTriangle>()
+            .unwrap();
+
+        let group2_child1 = group.get_child(1).unwrap();
+        let triangle2 = group2_child1
+            .as_any()
+            .downcast_ref::<SmoothTriangle>()
+            .unwrap();
+
+        assert_eq!(triangle1.point1, parsed.vertices[0]);
+        assert_eq!(triangle1.point2, parsed.vertices[1]);
+        assert_eq!(triangle1.point3, parsed.vertices[2]);
+
+        assert_eq!(triangle1.normal1, parsed.normals[2]);
+        assert_eq!(triangle1.normal2, parsed.normals[0]);
+        assert_eq!(triangle1.normal3, parsed.normals[1]);
+
+        assert_eq!(triangle2.point1, parsed.vertices[0]);
+        assert_eq!(triangle2.point2, parsed.vertices[1]);
+        assert_eq!(triangle2.point3, parsed.vertices[2]);
+
+        assert_eq!(triangle2.normal1, parsed.normals[2]);
+        assert_eq!(triangle2.normal2, parsed.normals[0]);
+        assert_eq!(triangle2.normal3, parsed.normals[1]);
     }
 }

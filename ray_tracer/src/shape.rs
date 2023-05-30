@@ -30,6 +30,7 @@ pub enum ShapeType {
     Cylinder,
     Cone,
     Triangle,
+    SmoothTriangle,
     Group,
     TestShape,
 }
@@ -37,14 +38,14 @@ pub enum ShapeType {
 pub trait Shape: Intersect + Send + Sync {
     /// Computes the normal vector at the world point.
     /// Typically does not need to be implemented for concrete types.
-    fn normal_at(&self, point: Point) -> Result<Vector> {
+    fn normal_at(&self, point: Point, hit: Option<Intersection>) -> Result<Vector> {
         let local_point = self.world_to_object(point)?;
-        let local_normal = self.local_normal_at(local_point);
+        let local_normal = self.local_normal_at(local_point, hit);
         self.normal_to_world(local_normal)
     }
 
     /// Computes the local normal for a given point.
-    fn local_normal_at(&self, local_point: Point) -> Vector;
+    fn local_normal_at(&self, local_point: Point, hit: Option<Intersection>) -> Vector;
 
     /// Returns the transformation matrix for this Shape.
     fn transformation(&self) -> Matrix;
@@ -257,7 +258,11 @@ pub mod sphere {
             self.transformation.clone()
         }
 
-        fn local_normal_at(&self, local_point: Point) -> Vector {
+        fn local_normal_at(
+            &self,
+            local_point: Point,
+            _intersection: Option<Intersection>,
+        ) -> Vector {
             local_point - Point::new(0., 0., 0.)
         }
 
@@ -386,21 +391,21 @@ pub mod sphere {
         #[test]
         fn normal_on_sphere_x_axis() {
             let sphere = Sphere::default();
-            let normal = sphere.normal_at(Point::new(1., 0., 0.)).unwrap();
+            let normal = sphere.normal_at(Point::new(1., 0., 0.), None).unwrap();
             assert_eq!(normal, Vector::new(1., 0., 0.));
         }
 
         #[test]
         fn normal_on_sphere_y_axis() {
             let sphere = Sphere::default();
-            let normal = sphere.normal_at(Point::new(0., 1., 0.)).unwrap();
+            let normal = sphere.normal_at(Point::new(0., 1., 0.), None).unwrap();
             assert_eq!(normal, Vector::new(0., 1., 0.));
         }
 
         #[test]
         fn normal_on_sphere_z_axis() {
             let sphere = Sphere::default();
-            let normal = sphere.normal_at(Point::new(0., 0., 1.)).unwrap();
+            let normal = sphere.normal_at(Point::new(0., 0., 1.), None).unwrap();
             assert_eq!(normal, Vector::new(0., 0., 1.));
         }
 
@@ -408,7 +413,7 @@ pub mod sphere {
         fn normal_on_sphere_nonaxial() {
             let sphere = Sphere::default();
             let val = 3.0_f64.sqrt() / 3.;
-            let normal = sphere.normal_at(Point::new(val, val, val)).unwrap();
+            let normal = sphere.normal_at(Point::new(val, val, val), None).unwrap();
             assert_eq!(normal, Vector::new(val, val, val));
         }
 
@@ -416,7 +421,7 @@ pub mod sphere {
         fn normal_is_normalized_vector() {
             let sphere = Sphere::default();
             let val = 3.0_f64.sqrt() / 3.;
-            let normal = sphere.normal_at(Point::new(val, val, val)).unwrap();
+            let normal = sphere.normal_at(Point::new(val, val, val), None).unwrap();
             assert_eq!(normal, normal.norm());
         }
 
@@ -424,7 +429,7 @@ pub mod sphere {
         fn compute_normal_translated_sphere() {
             let sphere = Sphere::default().with_transformation(Matrix::translation(0., 1., 0.));
             let normal = sphere
-                .normal_at(Point::new(0., 1.70711, -FRAC_1_SQRT_2))
+                .normal_at(Point::new(0., 1.70711, -FRAC_1_SQRT_2), None)
                 .unwrap();
             assert_eq!(normal, Vector::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
         }
@@ -434,7 +439,7 @@ pub mod sphere {
             let matrix = Matrix::identity().rotate_z(PI / 5.).scale(1., 0.5, 1.);
             let sphere = Sphere::default().with_transformation(matrix);
             let val = 2.0_f64.sqrt() / 2.;
-            let normal = sphere.normal_at(Point::new(0., val, -val)).unwrap();
+            let normal = sphere.normal_at(Point::new(0., val, -val), None).unwrap();
             assert_eq!(normal, Vector::new(0., 0.97014, -0.24254));
         }
 
@@ -530,7 +535,7 @@ pub mod plane {
             self.transformation.clone()
         }
 
-        fn local_normal_at(&self, _point: Point) -> Vector {
+        fn local_normal_at(&self, _point: Point, _hit: Option<Intersection>) -> Vector {
             // Every single point on the plane has the same normal
             Vector::new(0., 1., 0.)
         }
@@ -571,9 +576,9 @@ pub mod plane {
         #[test]
         fn normal_of_plane_is_constant_everywhere() {
             let plane = Plane::default();
-            let normal_1 = plane.local_normal_at(Point::new(0., 0., 0.));
-            let normal_2 = plane.local_normal_at(Point::new(10., 0., -10.));
-            let normal_3 = plane.local_normal_at(Point::new(-5., 0., 150.));
+            let normal_1 = plane.local_normal_at(Point::new(0., 0., 0.), None);
+            let normal_2 = plane.local_normal_at(Point::new(10., 0., -10.), None);
+            let normal_3 = plane.local_normal_at(Point::new(-5., 0., 150.), None);
             assert_eq!(normal_1, Vector::new(0., 1., 0.));
             assert_eq!(normal_2, Vector::new(0., 1., 0.));
             assert_eq!(normal_3, Vector::new(0., 1., 0.));
@@ -723,7 +728,7 @@ pub mod cube {
         }
 
         /// Always picks the component of the point that has the largest absolute value.
-        fn local_normal_at(&self, point: Point) -> Vector {
+        fn local_normal_at(&self, point: Point, _hit: Option<Intersection>) -> Vector {
             // we know the array contains elements, so ok to unwrap here
             let max_c = *[point.x.abs(), point.y.abs(), point.z.abs()]
                 .iter()
@@ -827,7 +832,7 @@ pub mod cube {
             ];
 
             for (point, expected_normal) in examples {
-                let normal = cube.local_normal_at(point);
+                let normal = cube.local_normal_at(point, None);
                 assert_eq!(normal, expected_normal);
             }
         }
@@ -963,7 +968,7 @@ pub mod cylinder {
             self.transformation.clone()
         }
 
-        fn local_normal_at(&self, point: Point) -> Vector {
+        fn local_normal_at(&self, point: Point, _hit: Option<Intersection>) -> Vector {
             // we must check to see which end cap the point corresponds to
             // or see if it lies on the cylinder itself
             // see p.187 of the book for explanation of the algorithm
@@ -1071,7 +1076,7 @@ pub mod cylinder {
             ];
 
             for (point, expected_normal) in examples {
-                let normal = cylinder.local_normal_at(point);
+                let normal = cylinder.local_normal_at(point, None);
                 assert_eq!(expected_normal, normal);
             }
         }
@@ -1144,7 +1149,7 @@ pub mod cylinder {
             ];
 
             for (point, expected_normal) in examples {
-                let normal = cylinder.local_normal_at(point);
+                let normal = cylinder.local_normal_at(point, None);
                 assert_eq!(expected_normal, normal);
             }
         }
@@ -1282,7 +1287,7 @@ pub mod cone {
             self.id
         }
 
-        fn local_normal_at(&self, point: Point) -> Vector {
+        fn local_normal_at(&self, point: Point, _hit: Option<Intersection>) -> Vector {
             let distance = point.x.powi(2) + point.z.powi(2);
 
             if distance < 1. && point.y >= self.maximum - EPSILON {
@@ -1413,7 +1418,7 @@ pub mod cone {
             ];
 
             for (point, expected_normal) in examples {
-                let normal = shape.local_normal_at(point);
+                let normal = shape.local_normal_at(point, None);
                 assert_eq!(expected_normal, normal);
             }
         }
@@ -1481,7 +1486,7 @@ pub mod triangle {
             }
 
             let t = f * self.edge2.dot(origin_cross_edge1);
-            vec![Intersection::new(t, Arc::new(self.clone()))]
+            vec![Intersection::new_with_uv(t, Arc::new(self.clone()), u, v)]
         }
     }
 
@@ -1496,7 +1501,7 @@ pub mod triangle {
             self.id
         }
 
-        fn local_normal_at(&self, _local_point: Point) -> Vector {
+        fn local_normal_at(&self, _local_point: Point, _hit: Option<Intersection>) -> Vector {
             self.normal
         }
 
@@ -1564,9 +1569,9 @@ pub mod triangle {
                 Point::new(1., 0., 0.),
                 Material::default(),
             );
-            let n1 = triangle.local_normal_at(Point::new(0., 0.5, 0.));
-            let n2 = triangle.local_normal_at(Point::new(-0.5, 0.75, 0.));
-            let n3 = triangle.local_normal_at(Point::new(0.5, 0.25, 0.));
+            let n1 = triangle.local_normal_at(Point::new(0., 0.5, 0.), None);
+            let n2 = triangle.local_normal_at(Point::new(-0.5, 0.75, 0.), None);
+            let n3 = triangle.local_normal_at(Point::new(0.5, 0.25, 0.), None);
             assert_eq!(n1, triangle.normal);
             assert_eq!(n2, triangle.normal);
             assert_eq!(n3, triangle.normal);
@@ -1638,6 +1643,186 @@ pub mod triangle {
             let xs = triangle.local_intersect(&ray);
             assert_eq!(xs.len(), 1);
             assert_eq!(xs[0].t, 2.);
+        }
+    }
+}
+
+pub mod smooth_triangle {
+    use super::*;
+    use crate::EPSILON;
+
+    #[derive(Debug, Clone)]
+    pub struct SmoothTriangle {
+        id: usize,
+        pub point1: Point,
+        pub point2: Point,
+        pub point3: Point,
+        pub normal1: Vector,
+        pub normal2: Vector,
+        pub normal3: Vector,
+        pub edge1: Vector,
+        pub edge2: Vector,
+        material: Material,
+        parent: MaybeKeyRef,
+    }
+
+    impl SmoothTriangle {
+        pub fn new(
+            point1: Point,
+            point2: Point,
+            point3: Point,
+            normal1: Vector,
+            normal2: Vector,
+            normal3: Vector,
+            material: Material,
+        ) -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(1);
+            let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+            let edge1 = point2 - point1;
+            let edge2 = point3 - point1;
+
+            let parent = Arc::new(RwLock::new(None));
+            Self {
+                id,
+                point1,
+                point2,
+                point3,
+                normal1,
+                normal2,
+                normal3,
+                edge1,
+                edge2,
+                material,
+                parent,
+            }
+        }
+
+        fn local_intersect(&self, ray: &Ray) -> Vec<Intersection> {
+            let direction_cross_edge2 = ray.direction.cross(self.edge2);
+            let determinant = self.edge1.dot(direction_cross_edge2);
+            if determinant.abs() < EPSILON {
+                return vec![];
+            }
+
+            let f = 1. / determinant;
+
+            let point1_to_origin = ray.origin - self.point1;
+            let u = f * point1_to_origin.dot(direction_cross_edge2);
+            if !(0. ..=1.).contains(&u) {
+                return vec![];
+            }
+
+            let origin_cross_edge1 = point1_to_origin.cross(self.edge1);
+            let v = f * ray.direction.dot(origin_cross_edge1);
+            if v < 0. || (u + v) > 1. {
+                return vec![];
+            }
+
+            let t = f * self.edge2.dot(origin_cross_edge1);
+            vec![Intersection::new_with_uv(t, Arc::new(self.clone()), u, v)]
+        }
+    }
+
+    impl Intersect for SmoothTriangle {
+        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            Ok(self.local_intersect(ray))
+        }
+    }
+
+    impl Shape for SmoothTriangle {
+        fn id(&self) -> usize {
+            self.id
+        }
+
+        fn local_normal_at(&self, _local_point: Point, hit: Option<Intersection>) -> Vector {
+            let hit = hit.unwrap();
+            self.normal2 * hit.u.unwrap()
+                + self.normal3 * hit.v.unwrap()
+                + self.normal1 * (1. - hit.u.unwrap() - hit.v.unwrap())
+        }
+
+        fn material(&self) -> Material {
+            if let Some(parent) = self.parent() {
+                // we know parent has to be a Group, so ok to unwrap here
+                let group = parent.as_group().unwrap();
+                if let Some(ref material) = group.material {
+                    material.clone()
+                } else {
+                    self.material.clone()
+                }
+            } else {
+                self.material.clone()
+            }
+        }
+
+        fn set_material(&mut self, material: Material) {
+            self.material = material;
+        }
+
+        fn parent_key(&self) -> Option<DefaultKey> {
+            *self.parent.read()
+        }
+
+        fn set_parent(&self, parent: DefaultKey) {
+            *self.parent.write() = Some(parent);
+        }
+
+        fn shape_type(&self) -> ShapeType {
+            ShapeType::Triangle
+        }
+
+        fn transformation(&self) -> Matrix {
+            Matrix::identity()
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn construct_smooth_triangle() {
+            let point1 = Point::new(0., 1., 0.);
+            let point2 = Point::new(-1., 0., 0.);
+            let point3 = Point::new(1., 0., 0.);
+            let normal1 = Vector::new(0., 1., 0.);
+            let normal2 = Vector::new(-1., 0., 0.);
+            let normal3 = Vector::new(1.0, 0., 0.);
+            let material = Material::default();
+
+            let triangle =
+                SmoothTriangle::new(point1, point2, point3, normal1, normal2, normal3, material);
+            assert_eq!(triangle.point1, point1);
+            assert_eq!(triangle.point2, point2);
+            assert_eq!(triangle.point3, point3);
+
+            assert_eq!(triangle.normal1, normal1);
+            assert_eq!(triangle.normal2, normal2);
+            assert_eq!(triangle.normal3, normal3);
+        }
+
+        #[test]
+        fn prepare_normal_on_smooth_triangle() {
+            let point1 = Point::new(0., 1., 0.);
+            let point2 = Point::new(-1., 0., 0.);
+            let point3 = Point::new(1., 0., 0.);
+            let normal1 = Vector::new(0., 1., 0.);
+            let normal2 = Vector::new(-1., 0., 0.);
+            let normal3 = Vector::new(1.0, 0., 0.);
+            let material = Material::default();
+
+            let triangle = Arc::new(SmoothTriangle::new(
+                point1, point2, point3, normal1, normal2, normal3, material,
+            ));
+            let intersection = Intersection::new_with_uv(1., triangle, 0.45, 0.25);
+            let ray = Ray::new(Point::new(-0.2, 0.3, -2.), Vector::new(0., 0., 1.));
+            let xs = vec![intersection.clone()];
+            let comps = intersection.prepare_computations(&ray, &xs).unwrap();
+            assert_eq!(comps.normal_vector, Vector::new(-0.5547, 0.83205, 0.))
         }
     }
 }
@@ -1748,7 +1933,7 @@ pub mod group {
             self.id
         }
 
-        fn local_normal_at(&self, _: Point) -> Vector {
+        fn local_normal_at(&self, _point: Point, _hit: Option<Intersection>) -> Vector {
             unimplemented!()
         }
 
@@ -1966,7 +2151,7 @@ mod tests {
             self.material = material;
         }
 
-        fn local_normal_at(&self, local_point: Point) -> Vector {
+        fn local_normal_at(&self, local_point: Point, _hit: Option<Intersection>) -> Vector {
             Vector::new(local_point.x, local_point.y, local_point.z)
         }
 
@@ -2016,7 +2201,7 @@ mod tests {
     fn compute_normal_on_translated_shape() {
         let shape = TestShape::default().with_transformation(Matrix::translation(0., 1., 0.));
         let normal = shape
-            .normal_at(Point::new(0., 1.70711, -FRAC_1_SQRT_2))
+            .normal_at(Point::new(0., 1.70711, -FRAC_1_SQRT_2), None)
             .unwrap();
         assert_eq!(normal, Vector::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
     }
@@ -2026,7 +2211,7 @@ mod tests {
         let transformation = Matrix::identity().rotate_z(PI / 2.).scale(1., 0.5, 1.);
         let shape = TestShape::default().with_transformation(transformation);
         let val = 2.0_f64.sqrt() / 2.;
-        let normal = shape.normal_at(Point::new(0., val, -val)).unwrap();
+        let normal = shape.normal_at(Point::new(0., val, -val), None).unwrap();
         assert_eq!(normal, Vector::new(0., 0.97014, -0.24254));
     }
 
@@ -2108,7 +2293,7 @@ mod tests {
         group2.add_child(&sphere);
 
         let normal = sphere
-            .normal_at(Point::new(1.7321, 1.1547, -5.5774))
+            .normal_at(Point::new(1.7321, 1.1547, -5.5774), None)
             .unwrap();
         // cf. book values (0.2857, 0.4286, -0.8571)
         assert_eq!(normal, Vector::new(0.2857, 0.42854, -0.85716));

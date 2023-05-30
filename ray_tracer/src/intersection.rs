@@ -94,11 +94,27 @@ impl<'a> Computations<'a> {
 pub struct Intersection {
     pub t: f64,
     pub object: ShapeRef,
+    pub u: Option<f64>, // u and v are specific to triangles
+    pub v: Option<f64>,
 }
 
 impl Intersection {
     pub fn new(t: f64, object: ShapeRef) -> Self {
-        Self { t, object }
+        Self {
+            t,
+            object,
+            u: None,
+            v: None,
+        }
+    }
+
+    pub fn new_with_uv(t: f64, object: ShapeRef, u: f64, v: f64) -> Self {
+        Self {
+            t,
+            object,
+            u: Some(u),
+            v: Some(v),
+        }
     }
 
     /// Precomputes the point (in world space) where the intersection occurred
@@ -111,7 +127,9 @@ impl Intersection {
     ) -> Result<Computations> {
         let point = ray.position(self.t);
         let eye_vector = -ray.direction;
-        let normal_vector = self.object.normal_at(point)?;
+        let normal_vector = self
+            .object
+            .normal_at(point, Some(intersections[0].clone()))?;
 
         // if the dot product of normal_vector and eye_vector is negative
         // then they're pointing in (roughly) opposite directions
@@ -208,7 +226,7 @@ mod tests {
     use crate::{
         equal,
         material::Material,
-        shape::{plane::Plane, sphere::Sphere},
+        shape::{plane::Plane, sphere::Sphere, triangle::Triangle},
         EPSILON,
     };
     use std::sync::Arc;
@@ -472,5 +490,19 @@ mod tests {
         let comps = xs[0].prepare_computations(&ray, xs).unwrap();
         let reflectance = comps.schlick();
         assert!(equal(reflectance, 0.48873));
+    }
+
+    #[test]
+    fn intersection_with_u_and_v() {
+        let shape = Arc::new(Triangle::new(
+            Point::new(0., 1., 0.),
+            Point::new(-1., 0., 0.),
+            Point::new(1., 0., 0.),
+            Material::default(),
+        ));
+
+        let intersection = Intersection::new_with_uv(3.5, shape, 0.2, 0.4);
+        assert_eq!(intersection.u, Some(0.2));
+        assert_eq!(intersection.v, Some(0.4));
     }
 }

@@ -127,9 +127,7 @@ impl Intersection {
     ) -> Result<Computations> {
         let point = ray.position(self.t);
         let eye_vector = -ray.direction;
-        let normal_vector = self
-            .object
-            .normal_at(point, Some(intersections[0].clone()))?;
+        let normal_vector = self.object.normal_at(point, Some(self.clone()))?;
 
         // if the dot product of normal_vector and eye_vector is negative
         // then they're pointing in (roughly) opposite directions

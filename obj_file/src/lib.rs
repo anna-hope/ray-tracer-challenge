@@ -53,7 +53,7 @@ fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Res
     let mut current_group: Option<Arc<dyn Shape>> = None;
 
     for (n, line) in string.lines().enumerate() {
-        let tokens = line.trim().split_whitespace().collect::<Vec<_>>();
+        let tokens = line.split_whitespace().collect::<Vec<_>>();
         if tokens.is_empty() {
             continue;
         }
@@ -96,7 +96,7 @@ fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Res
                 for token in &tokens[1..] {
                     let subtokens = token.split('/').collect::<Vec<_>>();
 
-                    let vertex_index = subtokens.get(0).ok_or(ParserError::InvalidInput(
+                    let vertex_index = subtokens.first().ok_or(ParserError::InvalidInput(
                         format!("Missing vertex index on line {line_no}"),
                     ))?;
                     let vertex_index = vertex_index.parse::<usize>().map_err(|_| {
@@ -154,11 +154,11 @@ fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Res
                     let group = group.as_group().unwrap();
 
                     for triangle in triangles.iter() {
-                        group.add_child(&triangle);
+                        group.add_child(triangle);
                     }
                 } else {
                     for triangle in triangles.iter() {
-                        default_group.add_child(&triangle);
+                        default_group.add_child(triangle);
                     }
                 }
             }

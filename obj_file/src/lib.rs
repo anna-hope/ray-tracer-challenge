@@ -37,15 +37,22 @@ impl ParsedObj {
     }
 }
 
-fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Result<ParsedObj> {
+fn parse_obj_string(
+    value: impl Into<String>,
+    material: Option<Material>,
+    transformation: Option<Matrix>,
+) -> Result<ParsedObj> {
     let string: String = value.into();
 
     let mut ignored_lines = 0;
     let mut vertices = vec![];
     let mut normals = vec![];
 
-    let default_group =
-        Arc::new(Group::default().with_material(material.clone().unwrap_or_default()));
+    let default_group = Arc::new(
+        Group::default()
+            .with_material(material.clone().unwrap_or_default())
+            .with_transformation(transformation.clone().unwrap_or_default()),
+    );
     let default_group_clone = Arc::clone(&default_group) as Arc<dyn Shape>;
     register_shape(default_group_clone);
 
@@ -191,12 +198,16 @@ fn parse_obj_string(value: impl Into<String>, material: Option<Material>) -> Res
     })
 }
 
-pub fn parse_obj_file(filename: &str, material: Option<Material>) -> Result<ParsedObj> {
+pub fn parse_obj_file(
+    filename: &str,
+    material: Option<Material>,
+    transformation: Option<Matrix>,
+) -> Result<ParsedObj> {
     let mut file = File::open(filename)?;
     let mut buffer = String::new();
     file.read_to_string(&mut buffer)?;
 
-    parse_obj_string(buffer, material)
+    parse_obj_string(buffer, material, transformation)
 }
 
 #[cfg(test)]
@@ -211,7 +222,7 @@ mod tests {
         In a relative way,
         And came back the previous night."#;
 
-        let parsed = parse_obj_string(gibberish, None).unwrap();
+        let parsed = parse_obj_string(gibberish, None, None).unwrap();
         assert_eq!(parsed.ignored_lines, 5);
     }
 
@@ -230,7 +241,7 @@ v 1 0 0
 v 1 1 0
         "#;
 
-        let parsed = parse_obj_string(obj_string, None).unwrap();
+        let parsed = parse_obj_string(obj_string, None, None).unwrap();
         assert_eq!(parsed.vertices[0], Point::new(-1., 1., 0.));
         assert_eq!(parsed.vertices[1], Point::new(-1., 0.5, 0.));
         assert_eq!(parsed.vertices[2], Point::new(1., 0., 0.));
@@ -249,7 +260,7 @@ f 1 2 3
 f 1 3 4
             "#;
 
-        let parsed = parse_obj_string(obj_string, None).unwrap();
+        let parsed = parse_obj_string(obj_string, None, None).unwrap();
         let group = parsed.default_group;
         let child1 = group.get_child(0).unwrap();
         let triangle1 = child1.as_any().downcast_ref::<Triangle>().unwrap();
@@ -279,7 +290,7 @@ v 0 2 0
 f 1 2 3 4 5
         "#;
 
-        let parsed = parse_obj_string(obj_string, None).unwrap();
+        let parsed = parse_obj_string(obj_string, None, None).unwrap();
         let group = parsed.default_group;
 
         let child1 = group.get_child(0).unwrap();
@@ -307,7 +318,7 @@ f 1 2 3 4 5
     #[test]
     fn triangles_in_groups() {
         let filename = "triangles.obj";
-        let parsed = parse_obj_file(filename, None).unwrap();
+        let parsed = parse_obj_file(filename, None, None).unwrap();
         let group1 = parsed.get_group("FirstGroup").unwrap();
         let group2 = parsed.get_group("SecondGroup").unwrap();
 
@@ -329,7 +340,7 @@ f 1 2 3 4 5
     #[test]
     fn convert_obj_file_to_group() {
         let filename = "triangles.obj";
-        let parsed = parse_obj_file(filename, None).unwrap();
+        let parsed = parse_obj_file(filename, None, None).unwrap();
         let group = Arc::clone(&parsed.default_group);
 
         let child1 = group.get_child(0).unwrap();
@@ -352,7 +363,7 @@ vn 0 0 1
 vn 0.707 0 -0.707
 vn 1 2 3
 "#;
-        let parsed = parse_obj_string(obj_string, None).unwrap();
+        let parsed = parse_obj_string(obj_string, None, None).unwrap();
         assert_eq!(parsed.normals[0], Vector::new(0., 0., 1.));
         assert_eq!(parsed.normals[1], Vector::new(0.707, 0., -0.707));
         assert_eq!(parsed.normals[2], Vector::new(1., 2., 3.));
@@ -373,7 +384,7 @@ f 1//3 2//1 3//2
 f 1/0/3 2/102/1 3/14/2
 "#;
 
-        let parsed = parse_obj_string(obj_string, None).unwrap();
+        let parsed = parse_obj_string(obj_string, None, None).unwrap();
         let group = parsed.default_group;
 
         let group1_child1 = group.get_child(0).unwrap();
@@ -396,12 +407,12 @@ f 1/0/3 2/102/1 3/14/2
         assert_eq!(triangle1.normal2, parsed.normals[0]);
         assert_eq!(triangle1.normal3, parsed.normals[1]);
 
-        assert_eq!(triangle2.point1, parsed.vertices[0]);
-        assert_eq!(triangle2.point2, parsed.vertices[1]);
-        assert_eq!(triangle2.point3, parsed.vertices[2]);
+        assert_eq!(triangle2.point1, triangle1.point1);
+        assert_eq!(triangle2.point2, triangle1.point2);
+        assert_eq!(triangle2.point3, triangle1.point3);
 
-        assert_eq!(triangle2.normal1, parsed.normals[2]);
-        assert_eq!(triangle2.normal2, parsed.normals[0]);
-        assert_eq!(triangle2.normal3, parsed.normals[1]);
+        assert_eq!(triangle2.normal1, triangle1.normal1);
+        assert_eq!(triangle2.normal2, triangle1.normal2);
+        assert_eq!(triangle2.normal3, triangle1.normal3);
     }
 }

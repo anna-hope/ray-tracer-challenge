@@ -266,6 +266,12 @@ impl Matrix {
     }
 }
 
+impl Default for Matrix {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
+
 impl Index<usize> for Matrix {
     type Output = Vec<f64>;
 

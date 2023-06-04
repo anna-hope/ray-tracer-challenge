@@ -1768,7 +1768,7 @@ pub mod smooth_triangle {
         }
 
         fn shape_type(&self) -> ShapeType {
-            ShapeType::Triangle
+            ShapeType::SmoothTriangle
         }
 
         fn transformation(&self) -> Matrix {

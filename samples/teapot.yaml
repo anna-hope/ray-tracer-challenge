@@ -32,6 +32,7 @@
 # the teapot object
 - add: obj
   file: obj/teapot.obj
-  material:
-    color: [0.6588235294, 0.662745098, 0.6784313725]
-    reflective: 0.7
+  material: {}
+  transform:
+    - [ rotate-x, -1.5707963268 ] # rotate 90 degrees (pi/2 radians) around the x-axis
+    - [ scale, 0.1, 0.1, 0.1]

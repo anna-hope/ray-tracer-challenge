@@ -59,6 +59,15 @@ fn parse_obj_string(
     let mut groups = HashMap::new();
     let mut current_group: Option<Arc<dyn Shape>> = None;
 
+    let mut min_x = f64::MAX;
+    let mut max_x = f64::MIN;
+
+    let mut min_y = f64::MAX;
+    let mut max_y = f64::MIN;
+
+    let mut min_z = f64::MAX;
+    let mut max_z = f64::MIN;
+
     for (n, line) in string.lines().enumerate() {
         let tokens = line.split_whitespace().collect::<Vec<_>>();
         if tokens.is_empty() {
@@ -88,6 +97,24 @@ fn parse_obj_string(
 
                     if tokens[0] == "v" {
                         vertices.push(Point::new(x, y, z));
+
+                        if x > max_x {
+                            max_x = x;
+                        } else if x < min_x {
+                            min_x = x;
+                        }
+
+                        if y > max_y {
+                            max_y = y;
+                        } else if y < min_y {
+                            min_y = y;
+                        }
+
+                        if z > max_z {
+                            max_z = z;
+                        } else if z < min_z {
+                            min_z = z;
+                        }
                     } else {
                         // vn
                         normals.push(Vector::new(x, y, z));
@@ -188,6 +215,10 @@ fn parse_obj_string(
             }
         }
     }
+
+    println!(
+        "obj file: x min&max: {min_x} & {max_x}; y min&max: {min_y} & {max_y}; z min&max: {min_z} & {max_z}"
+    );
 
     Ok(ParsedObj {
         ignored_lines,

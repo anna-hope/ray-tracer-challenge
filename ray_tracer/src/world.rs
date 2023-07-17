@@ -75,7 +75,7 @@ impl World {
         }
     }
 
-    fn is_shadowed(&self, point: Point, light_position: Point) -> Result<bool> {
+    pub fn is_shadowed(&self, point: Point, light_position: Point) -> Result<bool> {
         let distance_vector = light_position - point;
         let distance = distance_vector.magnitude();
         let direction = distance_vector.norm();
@@ -703,4 +703,5 @@ mod tests {
             assert_eq!(result, expected);
         }
     }
+
 }

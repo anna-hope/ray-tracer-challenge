@@ -2379,7 +2379,7 @@ pub mod csg {
             let cube = Arc::new(cube::Cube::default()) as ShapeRef;
             let csg = Csg::new(CsgOp::Union, sphere, cube);
             let ray = Ray::new(Point::new(0., 2., -5.), Vector::new(0., 0., 1.));
-            let xs = csg.local_intersect(&ray);
+            let xs = csg.local_intersect(&ray).unwrap();
             assert!(xs.is_empty());
         }
     }

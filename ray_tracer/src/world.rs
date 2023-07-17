@@ -43,7 +43,7 @@ impl World {
         let mut colors = vec![];
 
         for light in &self.lights {
-            let in_shadow = self.is_shadowed(comps.over_point, light)?;
+            let in_shadow = self.is_shadowed(comps.over_point, light.position)?;
             let surface_color = comps.object.material().lighting(
                 comps.object,
                 *light,
@@ -75,8 +75,8 @@ impl World {
         }
     }
 
-    fn is_shadowed(&self, point: Point, light: &PointLight) -> Result<bool> {
-        let distance_vector = light.position - point;
+    fn is_shadowed(&self, point: Point, light_position: Point) -> Result<bool> {
+        let distance_vector = light_position - point;
         let distance = distance_vector.magnitude();
         let direction = distance_vector.norm();
 
@@ -335,35 +335,6 @@ mod tests {
         let ray = Ray::new(Point::new(0., 0., 0.75), Vector::new(0., 0., -1.));
         let color = world.color_at(&ray, 5).unwrap();
         assert_eq!(color, inner_material.color);
-    }
-
-    #[test]
-    fn no_shadow_when_nothing_is_collinear_with_point_and_light() {
-        let world = World::default();
-        let point = Point::new(0., 10., 0.);
-        let is_shadowed = world.is_shadowed(point, &world.lights[0]).unwrap();
-        assert!(!is_shadowed);
-    }
-
-    #[test]
-    fn shadow_when_object_is_between_point_and_light() {
-        let world = World::default();
-        let point = Point::new(10., -10., 10.);
-        assert!(world.is_shadowed(point, &world.lights[0]).unwrap());
-    }
-
-    #[test]
-    fn no_shadow_when_object_is_behind_light() {
-        let world = World::default();
-        let point = Point::new(-20., 20., -20.);
-        assert!(!world.is_shadowed(point, &world.lights[0]).unwrap());
-    }
-
-    #[test]
-    fn no_shadow_when_object_is_behind_point() {
-        let world = World::default();
-        let point = Point::new(-2., -2., -2.);
-        assert!(!world.is_shadowed(point, &world.lights[0]).unwrap());
     }
 
     #[test]
@@ -714,5 +685,22 @@ mod tests {
         let color = world.shade_hit(&comps, 5).unwrap();
 
         assert_eq!(color, Color::new(0.93391, 0.69643, 0.69243));
+    }
+
+    #[test]
+    fn is_shadow_tests_for_occlusion_between_2_points() {
+        let world = World::default();
+        let light_position = Point::new(-10., -10., -10.);
+        let examples = [
+            (Point::new(-10., -10., 10.), false),
+            (Point::new(10., 10., 10.), true),
+            (Point::new(-20., -20., -20.), false),
+            (Point::new(-5., -5., -5.), false),
+        ];
+
+        for (point, expected) in examples {
+            let result = world.is_shadowed(point, light_position).unwrap();
+            assert_eq!(result, expected);
+        }
     }
 }

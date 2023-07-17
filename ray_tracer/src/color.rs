@@ -1,7 +1,7 @@
 // I'm choosing to ignore the book's recommendation and implement colors separately from tuples
 // because that seems like a cleaner solution, even if it results in some code duplication
 
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, MulAssign, Sub};
 
 use crate::equal;
 
@@ -89,6 +89,14 @@ impl Mul<Self> for Color {
             green: self.green * other.green,
             blue: self.blue * other.blue,
         }
+    }
+}
+
+impl MulAssign<f64> for Color {
+    fn mul_assign(&mut self, rhs: f64) {
+        self.red *= rhs;
+        self.green *= rhs;
+        self.blue *= rhs;
     }
 }
 

@@ -2158,14 +2158,18 @@ pub mod csg {
         pub operation: CsgOp,
         pub left: ShapeRef,
         pub right: ShapeRef,
+        parent: MaybeKeyRef,
     }
 
     impl Csg {
         pub fn new(operation: CsgOp, left: ShapeRef, right: ShapeRef) -> Arc<Self> {
+            let parent = Arc::new(RwLock::new(None));
+
             let csg = Self {
                 operation,
                 left: Arc::clone(&left),
                 right: Arc::clone(&right),
+                parent,
             };
             let csg_ref = Arc::new(csg);
             let shape_ref = Arc::clone(&csg_ref) as Arc<dyn Shape>;
@@ -2235,7 +2239,7 @@ pub mod csg {
     }
 
     impl Shape for Csg {
-        fn local_normal_at(&self, local_point: Point, hit: Option<Intersection>) -> Vector {
+        fn local_normal_at(&self, _local_point: Point, _hit: Option<Intersection>) -> Vector {
             unimplemented!()
         }
 
@@ -2251,16 +2255,16 @@ pub mod csg {
             ShapeType::Csg
         }
 
-        fn set_material(&mut self, material: Material) {
+        fn set_material(&mut self, _material: Material) {
             unimplemented!()
         }
 
         fn parent_key(&self) -> Option<DefaultKey> {
-            unimplemented!()
+            *self.parent.read()
         }
 
         fn set_parent(&self, parent: DefaultKey) {
-            unimplemented!()
+            *self.parent.write() = Some(parent);
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -2381,6 +2385,23 @@ pub mod csg {
             let ray = Ray::new(Point::new(0., 2., -5.), Vector::new(0., 0., 1.));
             let xs = csg.local_intersect(&ray).unwrap();
             assert!(xs.is_empty());
+        }
+
+        #[test]
+        fn ray_hits_csg_object() {
+            let sphere1 = Arc::new(sphere::Sphere::default()) as ShapeRef;
+            let sphere2 = Arc::new(
+                sphere::Sphere::default().with_transformation(Matrix::translation(0., 0., 0.5)),
+            ) as ShapeRef;
+            let csg = Csg::new(CsgOp::Union, Arc::clone(&sphere1), Arc::clone(&sphere2));
+            let ray = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
+            let xs = csg.local_intersect(&ray).unwrap();
+
+            assert_eq!(xs.len(), 2);
+            assert_eq!(xs[0].t, 4.);
+            assert_eq!(xs[0].object.id(), sphere1.id());
+            assert_eq!(xs[1].t, 6.5);
+            assert_eq!(xs[1].object.id(), sphere2.id());
         }
     }
 }

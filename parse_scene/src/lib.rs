@@ -86,7 +86,7 @@ struct Definition {
 #[derive(Debug)]
 pub struct Scene {
     pub camera: Camera,
-    pub lights: Vec<Light>,
+    pub lights: Vec<PointLight>,
     pub objects: Vec<Arc<dyn Shape>>,
 }
 
@@ -396,7 +396,7 @@ fn construct_camera(description: &Mapping) -> Result<Camera> {
     Ok(camera)
 }
 
-fn construct_light(description: &Mapping) -> Result<Light> {
+fn construct_light(description: &Mapping) -> Result<PointLight> {
     let position_values = description
         .get("at")
         .ok_or(ParseError::InvalidLightParams("Missing 'at'".to_string()))?
@@ -416,7 +416,7 @@ fn construct_light(description: &Mapping) -> Result<Light> {
         intensity_values[2],
     );
 
-    Ok(Light::new(position, intensity))
+    Ok(PointLight::new(position, intensity))
 }
 
 fn parse_material(description: &Value) -> Material {

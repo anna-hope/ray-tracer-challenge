@@ -1,4 +1,6 @@
-use crate::{color::Color, light::Light, pattern::Pattern, shape::Shape, Point, Result, Vector};
+use crate::{
+    color::Color, light::PointLight, pattern::Pattern, shape::Shape, Point, Result, Vector,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Material {
@@ -20,7 +22,7 @@ impl Material {
     pub fn lighting(
         &self,
         object: &dyn Shape,
-        light: Light,
+        light: PointLight,
         point: Point,
         eye_vector: Vector,
         normal_vector: Vector,
@@ -126,7 +128,7 @@ mod tests {
         let position = Point::new(0., 0., 0.);
         let eye_vector = Vector::new(0., 0., -1.);
         let normal_vector = Vector::new(0., 0., -1.);
-        let light = Light::new(Point::new(0., 0., -10.), Color::white());
+        let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
         let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
@@ -141,7 +143,7 @@ mod tests {
         let val = 2.0_f64.sqrt() / 2.0;
         let eye_vector = Vector::new(0., val, -val);
         let normal_vector = Vector::new(0., 0., -1.);
-        let light = Light::new(Point::new(0., 0., -10.), Color::white());
+        let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
         let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
@@ -155,7 +157,7 @@ mod tests {
         let position = Point::new(0., 0., 0.);
         let eye_vector = Vector::new(0., 0., -1.);
         let normal_vector = Vector::new(0., 0., -1.);
-        let light = Light::new(Point::new(0., 10., -10.), Color::white());
+        let light = PointLight::new(Point::new(0., 10., -10.), Color::white());
         let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
@@ -171,7 +173,7 @@ mod tests {
         let val = 2.0_f64.sqrt() / 2.;
         let eye_vector = Vector::new(0., -val, -val);
         let normal_vector = Vector::new(0., 0., -1.);
-        let light = Light::new(Point::new(0., 10., -10.), Color::white());
+        let light = PointLight::new(Point::new(0., 10., -10.), Color::white());
         let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
@@ -186,7 +188,7 @@ mod tests {
         let position = Point::new(0., 0., 0.);
         let eye_vector = Vector::new(0., 0., -1.);
         let normal_vector = Vector::new(0., 0., -1.);
-        let light = Light::new(Point::new(0., 0., 10.), Color::white());
+        let light = PointLight::new(Point::new(0., 0., 10.), Color::white());
         let object = Sphere::default();
         let result = material
             .lighting(&object, light, position, eye_vector, normal_vector, false)
@@ -200,7 +202,7 @@ mod tests {
         let position = Point::new(0., 0., 0.);
         let eye_vector = Vector::new(0., 0., -1.);
         let normal_vector = Vector::new(0., 0., -1.);
-        let light = Light::new(Point::new(0., 0., -10.), Color::white());
+        let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
         let in_shadow = true;
         let object = Sphere::default();
         let result = material
@@ -228,7 +230,7 @@ mod tests {
 
         let eye_vector = Vector::new(0., 0., -1.);
         let normal_vector = Vector::new(0., 0., -1.);
-        let light = Light::new(Point::new(0., 0., -10.), Color::white());
+        let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
         let shape = Sphere::default();
         let color1 = material
             .lighting(

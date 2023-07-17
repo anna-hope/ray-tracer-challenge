@@ -13,6 +13,7 @@ use crate::{
     Matrix, Point, Result, Vector,
 };
 
+use self::csg::Csg;
 use self::group::Group;
 
 pub type ShapeRef = Arc<dyn Shape>;
@@ -32,6 +33,7 @@ pub enum ShapeType {
     Triangle,
     SmoothTriangle,
     Group,
+    Csg,
     TestShape,
 }
 
@@ -110,6 +112,12 @@ pub trait Shape: Intersect + Send + Sync {
         self.as_any().downcast_ref::<Group>()
     }
 
+    /// Downcasts this shape to a Csg, if it is a Csg.
+    /// Returns None otherwise. Should not typically be implemented for concrete types.
+    fn as_csg(&self) -> Option<&Csg> {
+        self.as_any().downcast_ref::<Csg>()
+    }
+
     /// Gets the key of this shape from the SHAPES store, if the shape is in it.
     /// This is an O(n) operation, where n is the size of the SHAPES store,
     /// since we need to iterate over all the shapes in the store
@@ -123,6 +131,10 @@ pub trait Shape: Intersect + Send + Sync {
             }
         }
         None
+    }
+
+    fn includes(&self, object: ShapeRef) -> bool {
+        object.id() == self.id() && object.shape_type() == self.shape_type()
     }
 }
 
@@ -2007,6 +2019,15 @@ pub mod group {
         fn as_any(&self) -> &dyn Any {
             self
         }
+
+        fn includes(&self, object: ShapeRef) -> bool {
+            for child in self.children() {
+                if child.includes(Arc::clone(&object)) {
+                    return true;
+                }
+            }
+            false
+        }
     }
 
     impl Intersect for Group {
@@ -2118,6 +2139,248 @@ pub mod group {
             let ray = Ray::new(Point::new(10., 0., -10.), Vector::new(0., 0., 1.));
             let xs = group.intersect(&ray).unwrap();
             assert_eq!(xs.len(), 2);
+        }
+    }
+}
+
+pub mod csg {
+    use super::*;
+
+    #[derive(Debug, PartialEq, Clone, Copy)]
+    pub enum CsgOp {
+        Union,
+        Intersection,
+        Difference,
+    }
+
+    #[derive(Debug)]
+    pub struct Csg {
+        pub operation: CsgOp,
+        pub left: ShapeRef,
+        pub right: ShapeRef,
+    }
+
+    impl Csg {
+        pub fn new(operation: CsgOp, left: ShapeRef, right: ShapeRef) -> Arc<Self> {
+            let csg = Self {
+                operation,
+                left: Arc::clone(&left),
+                right: Arc::clone(&right),
+            };
+            let csg_ref = Arc::new(csg);
+            let shape_ref = Arc::clone(&csg_ref) as Arc<dyn Shape>;
+            let key = register_shape(Arc::clone(&shape_ref));
+            left.set_parent(key);
+            right.set_parent(key);
+            csg_ref
+        }
+
+        fn intersection_allowed(
+            operation: CsgOp,
+            left_hit: bool,
+            in_left: bool,
+            in_right: bool,
+        ) -> bool {
+            match operation {
+                CsgOp::Union => (left_hit && !in_right) || (!left_hit && !in_left),
+                CsgOp::Intersection => (left_hit && in_right) || (!left_hit && in_left),
+                CsgOp::Difference => (left_hit && !in_right) || (!left_hit && in_left),
+            }
+        }
+
+        /// Loop over each intersection in `intersections`, keeping track of which children
+        /// it's currently inside, and then passing that information to `intersections_allowed`.
+        /// If the intersection is allowed, it's added to the returned list
+        /// of passing intersections.
+        fn filter_intersections(&self, intersections: &[Intersection]) -> Vec<Intersection> {
+            // begin outside of both children
+            let mut in_left = false;
+            let mut in_right = false;
+
+            let mut result = vec![];
+
+            for intersection in intersections {
+                let left_hit = self.left.includes(Arc::clone(&intersection.object));
+
+                if Self::intersection_allowed(self.operation, left_hit, in_left, in_right) {
+                    result.push(intersection.clone());
+                }
+
+                if left_hit {
+                    in_left = !in_left;
+                } else {
+                    in_right = !in_right;
+                }
+            }
+
+            result
+        }
+
+        fn local_intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            let mut left_intersections = self.left.intersect(ray)?;
+            let mut right_intersections = self.right.intersect(ray)?;
+
+            left_intersections.append(&mut right_intersections);
+            left_intersections.sort_unstable_by(|a, b| a.t.total_cmp(&b.t));
+
+            Ok(self.filter_intersections(&left_intersections))
+        }
+    }
+
+    impl Intersect for Csg {
+        fn intersect(&self, ray: &Ray) -> Result<Vec<Intersection>> {
+            let ray = ray.transform(self.transformation());
+            self.local_intersect(&ray)
+        }
+    }
+
+    impl Shape for Csg {
+        fn local_normal_at(&self, local_point: Point, hit: Option<Intersection>) -> Vector {
+            unimplemented!()
+        }
+
+        fn transformation(&self) -> Matrix {
+            Matrix::identity()
+        }
+
+        fn id(&self) -> usize {
+            unimplemented!()
+        }
+
+        fn shape_type(&self) -> ShapeType {
+            ShapeType::Csg
+        }
+
+        fn set_material(&mut self, material: Material) {
+            unimplemented!()
+        }
+
+        fn parent_key(&self) -> Option<DefaultKey> {
+            unimplemented!()
+        }
+
+        fn set_parent(&self, parent: DefaultKey) {
+            unimplemented!()
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn includes(&self, object: ShapeRef) -> bool {
+            self.left.includes(Arc::clone(&object)) || self.right.includes(object)
+        }
+    }
+
+    impl PartialEq for Csg {
+        fn eq(&self, other: &Self) -> bool {
+            self.operation == other.operation
+                && self.left.shape_type() == other.left.shape_type()
+                && self.left.id() == other.left.id()
+                && self.right.shape_type() == other.right.shape_type()
+                && self.right.id() == other.right.id()
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn create_csg() {
+            let shape1 = Arc::new(sphere::Sphere::default()) as ShapeRef;
+            let shape2 = Arc::new(cube::Cube::default()) as ShapeRef;
+            let op = CsgOp::Union;
+
+            let csg = Csg::new(op, Arc::clone(&shape1), Arc::clone(&shape2));
+            assert_eq!(csg.operation, op);
+
+            assert_eq!(csg.left.id(), shape1.id());
+            assert_eq!(csg.left.shape_type(), shape1.shape_type());
+
+            assert_eq!(csg.right.id(), shape2.id());
+            assert_eq!(csg.right.shape_type(), shape2.shape_type());
+
+            assert_eq!(
+                csg.left.parent().unwrap().as_csg().unwrap(),
+                csg.as_csg().unwrap()
+            );
+            assert_eq!(
+                csg.right.parent().unwrap().as_csg().unwrap(),
+                csg.as_csg().unwrap()
+            );
+        }
+
+        #[test]
+        fn evaluate_csg_operation_rule() {
+            let examples = [
+                (CsgOp::Union, true, true, true, false),
+                (CsgOp::Union, true, true, false, true),
+                (CsgOp::Union, true, false, true, false),
+                (CsgOp::Union, true, false, false, true),
+                (CsgOp::Union, false, true, true, false),
+                (CsgOp::Union, false, true, false, false),
+                (CsgOp::Union, false, false, true, true),
+                (CsgOp::Union, false, false, false, true),
+                (CsgOp::Intersection, true, true, true, true),
+                (CsgOp::Intersection, true, true, false, false),
+                (CsgOp::Intersection, true, false, true, true),
+                (CsgOp::Intersection, true, false, false, false),
+                (CsgOp::Intersection, false, true, true, true),
+                (CsgOp::Intersection, false, true, false, true),
+                (CsgOp::Intersection, false, false, true, false),
+                (CsgOp::Intersection, false, false, false, false),
+                (CsgOp::Difference, true, true, true, false),
+                (CsgOp::Difference, true, true, false, true),
+                (CsgOp::Difference, true, false, true, false),
+                (CsgOp::Difference, true, false, false, true),
+                (CsgOp::Difference, false, true, true, true),
+                (CsgOp::Difference, false, true, false, true),
+                (CsgOp::Difference, false, false, true, false),
+                (CsgOp::Difference, false, false, false, false),
+            ];
+
+            for (operation, left_hit, in_left, in_right, expected) in examples {
+                let result = Csg::intersection_allowed(operation, left_hit, in_left, in_right);
+                assert_eq!(result, expected);
+            }
+        }
+
+        #[test]
+        fn filter_list_of_intersections() {
+            let shape1 = Arc::new(sphere::Sphere::default()) as ShapeRef;
+            let shape2 = Arc::new(cube::Cube::default()) as ShapeRef;
+
+            let examples = [
+                (CsgOp::Union, 0, 3),
+                (CsgOp::Intersection, 1, 2),
+                (CsgOp::Difference, 0, 1),
+            ];
+            let xs = vec![
+                Intersection::new(1., Arc::clone(&shape1)),
+                Intersection::new(2., Arc::clone(&shape2)),
+                Intersection::new(3., Arc::clone(&shape1)),
+                Intersection::new(4., Arc::clone(&shape2)),
+            ];
+
+            for (operation, x0, x1) in examples {
+                let csg = Csg::new(operation, Arc::clone(&shape1), Arc::clone(&shape2));
+                let result = csg.filter_intersections(&xs);
+
+                assert_eq!(result.len(), 2);
+                assert_eq!(result[0], xs[x0]);
+                assert_eq!(result[1], xs[x1]);
+            }
+        }
+
+        #[test]
+        fn ray_misses_csg_object() {
+            let sphere = Arc::new(sphere::Sphere::default()) as ShapeRef;
+            let cube = Arc::new(cube::Cube::default()) as ShapeRef;
+            let csg = Csg::new(CsgOp::Union, sphere, cube);
+            let ray = Ray::new(Point::new(0., 2., -5.), Vector::new(0., 0., 1.));
+            let xs = csg.local_intersect(&ray);
+            assert!(xs.is_empty());
         }
     }
 }

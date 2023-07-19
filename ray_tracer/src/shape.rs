@@ -2155,6 +2155,7 @@ pub mod csg {
 
     #[derive(Debug)]
     pub struct Csg {
+        id: usize,
         pub operation: CsgOp,
         pub left: ShapeRef,
         pub right: ShapeRef,
@@ -2163,9 +2164,12 @@ pub mod csg {
 
     impl Csg {
         pub fn new(operation: CsgOp, left: ShapeRef, right: ShapeRef) -> Arc<Self> {
+            static COUNTER: AtomicUsize = AtomicUsize::new(1);
+            let id = COUNTER.fetch_add(1, Ordering::Relaxed);
             let parent = Arc::new(RwLock::new(None));
 
             let csg = Self {
+                id,
                 operation,
                 left: Arc::clone(&left),
                 right: Arc::clone(&right),
@@ -2248,7 +2252,7 @@ pub mod csg {
         }
 
         fn id(&self) -> usize {
-            unimplemented!()
+            self.id
         }
 
         fn shape_type(&self) -> ShapeType {

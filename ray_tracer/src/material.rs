@@ -26,7 +26,7 @@ impl Material {
         point: Point,
         eye_vector: Vector,
         normal_vector: Vector,
-        in_shadow: bool,
+        light_intensity: f64,
     ) -> Result<Color> {
         let color = if let Some(pattern) = &self.pattern {
             pattern.pattern_at_shape(object, point)?
@@ -48,16 +48,12 @@ impl Material {
         // the light is on the other side of the surface.
         let light_dot_normal = light_vector.dot(normal_vector);
 
-        let diffuse: Color;
-        let specular: Color;
-
-        if light_dot_normal < 0. {
+        let (diffuse, specular) = if light_dot_normal < 0. {
             // set both to black because the light is obstructed
-            diffuse = Color::default();
-            specular = Color::default();
+            (Color::black(), Color::black())
         } else {
             // compute the diffuse contribution
-            diffuse = effective_color * self.diffuse * light_dot_normal;
+            let diffuse = effective_color * self.diffuse * light_dot_normal * light_intensity;
 
             // reflect_dot_eye represents the cosine of the angle between
             // the reflection vector and the eye vector. A negative number means
@@ -65,23 +61,19 @@ impl Material {
             let reflect_vector = (-light_vector).reflect(normal_vector);
             let reflect_dot_eye = reflect_vector.dot(eye_vector);
 
-            if reflect_dot_eye <= 0. {
+            let specular = if reflect_dot_eye <= 0. {
                 // set it to black because it reflects away from the eye
-                specular = Color::default();
+                Color::black() * light_intensity
             } else {
                 // compute the specular contribution
                 let factor = reflect_dot_eye.powf(self.shininess);
-                specular = light.intensity * self.specular * factor;
-            }
-        }
+                light.intensity * self.specular * factor * light_intensity
+            };
 
-        if in_shadow {
-            // only the ambient light illuminates the material if we're in shadow
-            Ok(ambient)
-        } else {
-            // add the three contributions to get the final shading
-            Ok(ambient + diffuse + specular)
-        }
+            (diffuse, specular)
+        };
+
+        Ok(ambient + specular + diffuse)
     }
 }
 
@@ -108,7 +100,8 @@ impl Default for Material {
 
 #[cfg(test)]
 mod tests {
-    use crate::{pattern::stripe::StripePattern, shape::sphere::Sphere};
+    use crate::{pattern::stripe::StripePattern, shape::sphere::Sphere, world::World};
+    use std::sync::Arc;
 
     use super::*;
 
@@ -131,7 +124,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, false)
+            .lighting(&object, light, position, eye_vector, normal_vector, 1.)
             .unwrap();
         assert_eq!(result, Color::new(1.9, 1.9, 1.9));
     }
@@ -146,7 +139,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, false)
+            .lighting(&object, light, position, eye_vector, normal_vector, 1.)
             .unwrap();
         assert_eq!(result, Color::white());
     }
@@ -160,7 +153,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 10., -10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, false)
+            .lighting(&object, light, position, eye_vector, normal_vector, 1.)
             .unwrap();
         let val = 0.7364;
         assert_eq!(result, Color::new(val, val, val));
@@ -176,7 +169,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 10., -10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, false)
+            .lighting(&object, light, position, eye_vector, normal_vector, 1.)
             .unwrap();
         let val2 = 1.6364;
         assert_eq!(result, Color::new(val2, val2, val2));
@@ -191,7 +184,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 0., 10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, false)
+            .lighting(&object, light, position, eye_vector, normal_vector, 1.)
             .unwrap();
         assert_eq!(result, Color::new(0.1, 0.1, 0.1));
     }
@@ -203,17 +196,9 @@ mod tests {
         let eye_vector = Vector::new(0., 0., -1.);
         let normal_vector = Vector::new(0., 0., -1.);
         let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
-        let in_shadow = true;
         let object = Sphere::default();
         let result = material
-            .lighting(
-                &object,
-                light,
-                position,
-                eye_vector,
-                normal_vector,
-                in_shadow,
-            )
+            .lighting(&object, light, position, eye_vector, normal_vector, 0.)
             .unwrap();
         assert_eq!(result, Color::new(0.1, 0.1, 0.1));
     }
@@ -239,7 +224,7 @@ mod tests {
                 Point::new(0.9, 0., 0.),
                 eye_vector,
                 normal_vector,
-                false,
+                1.,
             )
             .unwrap();
 
@@ -250,7 +235,7 @@ mod tests {
                 Point::new(1.1, 0., 0.),
                 eye_vector,
                 normal_vector,
-                false,
+                1.,
             )
             .unwrap();
 
@@ -269,5 +254,46 @@ mod tests {
         let material = Material::default();
         assert_eq!(material.transparency, 0.);
         assert_eq!(material.refractive_index, 1.);
+    }
+
+    #[test]
+    fn lighting_uses_light_intensity_to_attenuate_color() {
+        let mut world = World::default();
+        world.lights = vec![PointLight::new(Point::new(0., 0., -10.), Color::white())];
+
+        let shape = Arc::get_mut(&mut world.objects[0]).unwrap();
+        let material = Material {
+            ambient: 0.1,
+            diffuse: 0.9,
+            specular: 0.,
+            color: Color::white(),
+            ..Default::default()
+        };
+        shape.set_material(material);
+
+        let point = Point::new(0., 0., -1.);
+        let eye_vector = Vector::new(0., 0., -1.);
+        let normal_vector = Vector::new(0., 0., -1.);
+
+        let examples = [
+            (1., Color::white()),
+            (0.5, Color::new(0.55, 0.55, 0.55)),
+            (0., Color::new(0.1, 0.1, 0.1)),
+        ];
+
+        for (light_intensity, expected) in examples {
+            let result = shape
+                .material()
+                .lighting(
+                    shape,
+                    world.lights[0],
+                    point,
+                    eye_vector,
+                    normal_vector,
+                    light_intensity,
+                )
+                .unwrap();
+            assert_eq!(result, expected);
+        }
     }
 }

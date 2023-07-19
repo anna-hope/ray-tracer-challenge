@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     intersection::{hit, Computations, Intersect, Intersection},
-    light::PointLight,
+    light::{Light, PointLight},
     material::Material,
     shape::sphere::Sphere,
     shape::ShapeRef,
@@ -43,14 +43,14 @@ impl World {
         let mut colors = vec![];
 
         for light in &self.lights {
-            let in_shadow = self.is_shadowed(comps.over_point, light.position)?;
+            let light_intensity = light.intensity_at(comps.over_point, self)?;
             let surface_color = comps.object.material().lighting(
                 comps.object,
                 *light,
                 comps.over_point,
                 comps.eye_vector,
                 comps.normal_vector,
-                in_shadow,
+                light_intensity,
             )?;
 
             let reflected_color = self.reflected_color(comps, remaining)?;
@@ -703,5 +703,4 @@ mod tests {
             assert_eq!(result, expected);
         }
     }
-
 }

@@ -1,6 +1,6 @@
 use crate::{world::World, Color, Point, Result};
 
-trait Light {
+pub trait Light {
     fn intensity_at(&self, point: Point, world: &World) -> Result<f64>;
 }
 

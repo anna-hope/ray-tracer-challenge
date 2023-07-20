@@ -51,7 +51,7 @@ fn parse_obj_string(
     let default_group = Arc::new(
         Group::default()
             .with_material(material.clone().unwrap_or_default())
-            .with_transformation(transformation.clone().unwrap_or_default()),
+            .with_transformation(transformation.unwrap_or_default()),
     );
     let default_group_clone = Arc::clone(&default_group) as Arc<dyn Shape>;
     register_shape(default_group_clone);

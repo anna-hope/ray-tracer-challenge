@@ -86,7 +86,7 @@ struct Definition {
 #[derive(Debug)]
 pub struct Scene {
     pub camera: Camera,
-    pub lights: Vec<PointLight>,
+    pub lights: Vec<Box<dyn Light>>,
     pub objects: Vec<Arc<dyn Shape>>,
 }
 
@@ -684,7 +684,7 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
                     }
                     "light" => {
                         let light = construct_light(mapping)?;
-                        lights.push(light);
+                        lights.push(Box::new(light) as Box<dyn Light>);
                     }
                     "sphere" | "plane" | "cube" | "cylinder" | "cone" | "group" | "obj" => {
                         let object = construct_object(mapping, &definitions, None)?;
@@ -716,6 +716,7 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ray_tracer::prelude::Light;
 
     #[test]
     fn parse_simple_scene() {
@@ -753,10 +754,10 @@ mod tests {
         let scene = parse_scene(input).unwrap();
 
         assert_eq!(scene.lights.len(), 2);
-        assert_eq!(scene.lights[0].position, Point::new(-10., 10., -10.));
-        assert_eq!(scene.lights[0].intensity, Color::new(1., 1., 1.));
-        assert_eq!(scene.lights[1].position, Point::new(10., 10., -10.));
-        assert_eq!(scene.lights[1].intensity, Color::new(1., 1., 1.));
+        assert_eq!(scene.lights[0].position(), Point::new(-10., 10., -10.));
+        assert_eq!(scene.lights[0].intensity(), Color::new(1., 1., 1.));
+        assert_eq!(scene.lights[1].position(), Point::new(10., 10., -10.));
+        assert_eq!(scene.lights[1].intensity(), Color::new(1., 1., 1.));
 
         assert_eq!(scene.objects.len(), 2);
         assert_eq!(scene.objects[0].material().color, Color::new(1., 0.2, 1.));

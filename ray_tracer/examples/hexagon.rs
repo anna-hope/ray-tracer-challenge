@@ -43,7 +43,7 @@ fn main() {
         side.add_child(&edge);
     }
 
-    let light = PointLight::new(Point::new(0., 1., 1.), Color::white());
+    let light = Box::new(PointLight::new(Point::new(0., 1., 1.), Color::white()));
     let world = World::new(vec![hex], vec![light]);
 
     let from = Point::new(0., 4., 5.);

@@ -1,6 +1,4 @@
-use crate::{
-    color::Color, light::PointLight, pattern::Pattern, shape::Shape, Point, Result, Vector,
-};
+use crate::{color::Color, light::Light, pattern::Pattern, shape::Shape, Point, Result, Vector};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Material {
@@ -22,7 +20,7 @@ impl Material {
     pub fn lighting(
         &self,
         object: &dyn Shape,
-        light: PointLight,
+        light: &dyn Light,
         point: Point,
         eye_vector: Vector,
         normal_vector: Vector,
@@ -35,10 +33,10 @@ impl Material {
         };
 
         // combine the surface color with the light's color/intensity
-        let effective_color = color * light.intensity;
+        let effective_color = color * light.intensity();
 
         // find the direction to the light surface
-        let light_vector = (light.position - point).norm();
+        let light_vector = (light.position() - point).norm();
 
         // compute the ambient contribution
         let ambient = effective_color * self.ambient;
@@ -67,7 +65,7 @@ impl Material {
             } else {
                 // compute the specular contribution
                 let factor = reflect_dot_eye.powf(self.shininess);
-                light.intensity * self.specular * factor * light_intensity
+                light.intensity() * self.specular * factor * light_intensity
             };
 
             (diffuse, specular)
@@ -100,7 +98,9 @@ impl Default for Material {
 
 #[cfg(test)]
 mod tests {
-    use crate::{pattern::stripe::StripePattern, shape::sphere::Sphere, world::World};
+    use crate::{
+        light::PointLight, pattern::stripe::StripePattern, shape::sphere::Sphere, world::World,
+    };
     use std::sync::Arc;
 
     use super::*;
@@ -124,7 +124,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, 1.)
+            .lighting(&object, &light, position, eye_vector, normal_vector, 1.)
             .unwrap();
         assert_eq!(result, Color::new(1.9, 1.9, 1.9));
     }
@@ -139,7 +139,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, 1.)
+            .lighting(&object, &light, position, eye_vector, normal_vector, 1.)
             .unwrap();
         assert_eq!(result, Color::white());
     }
@@ -153,7 +153,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 10., -10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, 1.)
+            .lighting(&object, &light, position, eye_vector, normal_vector, 1.)
             .unwrap();
         let val = 0.7364;
         assert_eq!(result, Color::new(val, val, val));
@@ -169,7 +169,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 10., -10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, 1.)
+            .lighting(&object, &light, position, eye_vector, normal_vector, 1.)
             .unwrap();
         let val2 = 1.6364;
         assert_eq!(result, Color::new(val2, val2, val2));
@@ -184,7 +184,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 0., 10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, 1.)
+            .lighting(&object, &light, position, eye_vector, normal_vector, 1.)
             .unwrap();
         assert_eq!(result, Color::new(0.1, 0.1, 0.1));
     }
@@ -198,7 +198,7 @@ mod tests {
         let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
         let object = Sphere::default();
         let result = material
-            .lighting(&object, light, position, eye_vector, normal_vector, 0.)
+            .lighting(&object, &light, position, eye_vector, normal_vector, 0.)
             .unwrap();
         assert_eq!(result, Color::new(0.1, 0.1, 0.1));
     }
@@ -220,7 +220,7 @@ mod tests {
         let color1 = material
             .lighting(
                 &shape,
-                light,
+                &light,
                 Point::new(0.9, 0., 0.),
                 eye_vector,
                 normal_vector,
@@ -231,7 +231,7 @@ mod tests {
         let color2 = material
             .lighting(
                 &shape,
-                light,
+                &light,
                 Point::new(1.1, 0., 0.),
                 eye_vector,
                 normal_vector,
@@ -259,7 +259,10 @@ mod tests {
     #[test]
     fn lighting_uses_light_intensity_to_attenuate_color() {
         let mut world = World::default();
-        world.lights = vec![PointLight::new(Point::new(0., 0., -10.), Color::white())];
+        world.lights = vec![Box::new(PointLight::new(
+            Point::new(0., 0., -10.),
+            Color::white(),
+        ))];
 
         let shape = Arc::get_mut(&mut world.objects[0]).unwrap();
         let material = Material {
@@ -286,7 +289,7 @@ mod tests {
                 .material()
                 .lighting(
                     shape,
-                    world.lights[0],
+                    &*world.lights[0],
                     point,
                     eye_vector,
                     normal_vector,

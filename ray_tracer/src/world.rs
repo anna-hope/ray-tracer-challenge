@@ -12,11 +12,11 @@ use crate::{
 #[derive(Debug)]
 pub struct World {
     pub objects: Vec<ShapeRef>,
-    pub lights: Vec<PointLight>,
+    pub lights: Vec<Box<dyn Light>>,
 }
 
 impl World {
-    pub fn new(objects: Vec<ShapeRef>, lights: Vec<PointLight>) -> Self {
+    pub fn new(objects: Vec<ShapeRef>, lights: Vec<Box<dyn Light>>) -> Self {
         Self { objects, lights }
     }
 
@@ -46,7 +46,7 @@ impl World {
             let light_intensity = light.intensity_at(comps.over_point, self)?;
             let surface_color = comps.object.material().lighting(
                 comps.object,
-                *light,
+                &**light,
                 comps.over_point,
                 comps.eye_vector,
                 comps.normal_vector,
@@ -152,7 +152,7 @@ impl Default for World {
     /// and two concentric spheres, where the outermost is a unit sphere
     /// and the inntermost has a radius of 0.5. Both lie at the origin.
     fn default() -> Self {
-        let light = PointLight::new(Point::new(-10., 10., -10.), Color::white());
+        let light = Box::new(PointLight::new(Point::new(-10., 10., -10.), Color::white()));
 
         let material = Material {
             color: Color::new(0.8, 1.0, 0.6),
@@ -201,7 +201,8 @@ mod tests {
     #[test]
     fn create_default_world() {
         let mut world = World::default();
-        let light = PointLight::new(Point::new(-10., 10., -10.), Color::white());
+        let light = Box::new(PointLight::new(Point::new(-10., 10., -10.), Color::white()))
+            as Box<dyn Light>;
         assert_eq!(world.lights, vec![light]);
 
         let color = Color::new(0.8, 1.0, 0.6);
@@ -261,7 +262,10 @@ mod tests {
     #[test]
     fn shading_intersection_from_inside() {
         let world = World {
-            lights: vec![PointLight::new(Point::new(0., 0.25, 0.), Color::white())],
+            lights: vec![Box::new(PointLight::new(
+                Point::new(0., 0.25, 0.),
+                Color::white(),
+            ))],
             ..Default::default()
         };
         let ray = Ray::new(Point::new(0., 0., 0.), Vector::new(0., 0., 1.));
@@ -279,7 +283,7 @@ mod tests {
 
     #[test]
     fn shade_hit_is_given_intersection_in_shadow() {
-        let light = PointLight::new(Point::new(0., 0., -10.), Color::white());
+        let light = Box::new(PointLight::new(Point::new(0., 0., -10.), Color::white()));
         let sphere1 = Arc::<Sphere>::default();
         let sphere2 =
             Arc::new(Sphere::default().with_transformation(Matrix::translation(0., 0., 10.)));
@@ -344,7 +348,7 @@ mod tests {
         // which would happen if we went the route of constructing a default world
         // then getting a mutable reference to its second shape
         // and trying to set the material on that directly
-        let light = PointLight::new(Point::new(-10., 10., -10.), Color::white());
+        let light = Box::new(PointLight::new(Point::new(-10., 10., -10.), Color::white()));
 
         let material = Material {
             color: Color::new(0.8, 1.0, 0.6),
@@ -470,7 +474,10 @@ mod tests {
         let sphere1 = Arc::new(Sphere::default().with_material(material));
         let sphere2 = Arc::new(Sphere::default().with_transformation(transformation));
 
-        let light = PointLight::new(Point::new(0., 0., 0.), Color::new(1., 1., 1.));
+        let light = Box::new(PointLight::new(
+            Point::new(0., 0., 0.),
+            Color::new(1., 1., 1.),
+        ));
 
         let lower = Arc::new(
             Plane::default()

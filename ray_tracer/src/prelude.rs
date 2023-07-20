@@ -1,7 +1,7 @@
 pub use crate::camera::Camera;
 pub use crate::color::Color;
 pub use crate::intersection::Ray;
-pub use crate::light::PointLight;
+pub use crate::light::{AreaLight, Light, PointLight};
 pub use crate::material::Material;
 pub use crate::matrix::Matrix;
 pub use crate::shape::*;

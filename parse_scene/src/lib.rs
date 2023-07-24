@@ -419,6 +419,72 @@ fn construct_light(description: &Mapping) -> Result<PointLight> {
     Ok(PointLight::new(position, intensity))
 }
 
+fn construct_area_light(description: &Mapping) -> Result<AreaLight> {
+    let corner_values = description
+        .get("corner")
+        .ok_or(ParseError::InvalidLightParams(
+            "Missing 'corner".to_string(),
+        ))?
+        .get_f64_vec()?;
+    let corner = Point::new(corner_values[0], corner_values[1], corner_values[2]);
+
+    let full_uvec_values = description
+        .get("full_uvec")
+        .ok_or(ParseError::InvalidLightParams(
+            "Missing 'full_uvec'".to_string(),
+        ))?
+        .get_f64_vec()?;
+    let full_uvec = Vector::new(
+        full_uvec_values[0],
+        full_uvec_values[1],
+        full_uvec_values[2],
+    );
+
+    let usteps = description
+        .get("usteps")
+        .ok_or(ParseError::InvalidLightParams("Missing usteps".to_string()))?
+        .as_u64()
+        .ok_or(ParseError::InvalidLightParams(
+            "Invalid value for usteps".to_string(),
+        ))? as usize;
+
+    let full_vvec_values = description
+        .get("full_vvec")
+        .ok_or(ParseError::InvalidLightParams(
+            "Missing 'full_vvec'".to_string(),
+        ))?
+        .get_f64_vec()?;
+    let full_vvec = Vector::new(
+        full_vvec_values[0],
+        full_vvec_values[1],
+        full_vvec_values[2],
+    );
+
+    let vsteps = description
+        .get("vsteps")
+        .ok_or(ParseError::InvalidLightParams("Missing vsteps".to_string()))?
+        .as_u64()
+        .ok_or(ParseError::InvalidLightParams(
+            "Invalid value for vsteps".to_string(),
+        ))? as usize;
+
+    let intensity_values = description
+        .get("intensity")
+        .ok_or(ParseError::InvalidLightParams(
+            "Missing 'intensity'".to_string(),
+        ))?
+        .get_f64_vec()?;
+    let intensity = Color::new(
+        intensity_values[0],
+        intensity_values[1],
+        intensity_values[2],
+    );
+
+    Ok(AreaLight::new(
+        corner, full_uvec, usteps, full_vvec, vsteps, intensity,
+    ))
+}
+
 fn parse_material(description: &Value) -> Material {
     let color_values = description
         .get("color")
@@ -686,6 +752,10 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
                         let light = construct_light(mapping)?;
                         lights.push(Box::new(light) as Box<dyn Light>);
                     }
+                    "area-light" => {
+                        let light = construct_area_light(mapping)?;
+                        lights.push(Box::new(light) as Box<dyn Light>);
+                    }
                     "sphere" | "plane" | "cube" | "cylinder" | "cone" | "group" | "obj" => {
                         let object = construct_object(mapping, &definitions, None)?;
                         objects.push(object);
@@ -716,7 +786,6 @@ pub fn parse_scene(input: &str) -> Result<Scene> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ray_tracer::prelude::Light;
 
     #[test]
     fn parse_simple_scene() {
